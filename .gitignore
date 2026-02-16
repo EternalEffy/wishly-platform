@@ -1,0 +1,78 @@
+# =====================
+# Maven
+# =====================
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+# =====================
+# IntelliJ IDEA
+# =====================
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+!**/src/main/**/out/
+!**/src/test/**/out/
+
+# =====================
+# Eclipse
+# =====================
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+# =====================
+# NetBeans
+# =====================
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+build/
+
+# =====================
+# VS Code
+# =====================
+.vscode/
+
+# =====================
+# OS Files
+# =====================
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# =====================
+# Logs
+# =====================
+*.log
+logs/
+spring.log
+
+# =====================
+# Application
+# =====================
+*.jar
+*.war
+*.ear
+
+# =====================
+# Docker (опционально)
+# =====================
+docker-compose.override.yml
