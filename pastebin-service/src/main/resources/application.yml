@@ -41,3 +41,5 @@ logging:
     root: ${LOG_LEVEL_ROOT:INFO}
     com.pastebin.pasteservice: ${LOG_LEVEL_APP:DEBUG}
     org.hibernate.SQL: ${LOG_LEVEL_SQL:DEBUG}
+    org.springframework.web: DEBUG
+    org.springframework.web.servlet: DEBUG
