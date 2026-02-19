@@ -7,8 +7,8 @@ spring:
 
   # Redis Configuration
   redis:
-    host: ${REDIS_HOST:localhost}
-    port: ${REDIS_PORT:6379}
+    host: ${SPRING_REDIS_HOST:redis}
+    port: ${SPRING_REDIS_PORT:6379}
     password: ${REDIS_PASSWORD:}
     timeout: ${REDIS_TIMEOUT:60000}
     lettuce:
@@ -26,10 +26,11 @@ spring:
 # Hash Generation Settings
 hash:
   generator:
+    pool-key: ${POOL_KEY:hash:pool}
     length: ${HASH_LENGTH:8}
-    charset: ${HASH_CHARSET:ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789}
-    ttl-seconds: ${HASH_TTL:3600}
-
+    pool:
+      threshold: ${POOL_THRESHOLD:100}
+      batch-size: ${POOL_BATCH_SIZE:1000}
 # Logging Configuration
 logging:
   level:
