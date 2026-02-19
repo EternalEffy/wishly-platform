@@ -25,6 +25,13 @@ graph LR
     style DB fill:#9C27B0,stroke:#333,stroke-width:2px,color:white
     style RD fill:#F44336,stroke:#333,stroke-width:2px,color:white
 ```
+## Key Features
+
+- Microservices Architecture — Independent deployment and scaling
+- Redis Hash Pool — Pre-generated hashes for high performance (~1ms)
+- Background Refill Job — Automatic pool replenishment (@Scheduled)
+- API Gateway — Centralized routing and future rate limiting
+- PostgreSQL — Persistent storage for paste content
 
 ## 📦 Modules
 
@@ -80,20 +87,30 @@ mvn spring-boot:run -pl pastebin-gateway
 | **Build Tool** | Maven |
 | **Architecture** | Microservices (REST) |
 
-## 🔌 API Endpoints (Planned)
+## 🔌 API Endpoints
 
-> ⚠️ These endpoints are planned and will be implemented in future iterations.
+### Hash Generator Service (Port 8081)
+
+| Method | Endpoint | Description | Status |
+|--------|----------|-------------|--------|
+| `GET` | `/api/hash?length=8` | Get unique hash from Redis pool | ✅ Implemented |
+
+**Example:**
+``` bash
+curl http://localhost:8081/api/hash?length=8
+# Response: cHjj6PzH
+```
 
 ### Paste Service (Port 8082)
 
 | Method | Endpoint | Description | Status |
 |--------|----------|-------------|--------|
-| `POST` | `/api/pastes` | Create new paste | 📝 Planned |
-| `GET` | `/api/pastes/{hash}` | Get paste by hash | 📝 Planned |
-| `DELETE` | `/api/pastes/{hash}` | Delete paste | 📝 Planned |
+| `POST` | `/api/pastes` | Create new paste | ✅ Implemented |
+| `GET` | `/api/pastes/{hash}` | Get paste by hash | ✅ Implemented |
+| `DELETE` | `/api/pastes/{hash}` | Delete paste | ✅ Implemented |
 
 ### Health Check
 
 | Method | Endpoint | Description | Status |
 |--------|----------|-------------|--------|
-| `GET` | `/health` | Service health status | 📝 Planned |
+| `GET` | `/health` | Service health status | ✅ Implemented |
