@@ -60,6 +60,7 @@ services:
       - DB_SHOW_SQL=true
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - HASH_SERVICE_URL=http://hash-generator-service:8081
       - LOG_LEVEL_ROOT=INFO
       - LOG_LEVEL_APP=DEBUG
     depends_on:

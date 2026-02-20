@@ -35,6 +35,16 @@ spring:
     password: ${REDIS_PASSWORD:}
     timeout: ${REDIS_TIMEOUT:60000}
 
+hash:
+  generator:
+    service:
+      url: ${HASH_SERVICE_URL:http://hash-generator-service:8081}
+
+http:
+  client:
+    connect-timeout: 5
+    read-timeout: 10
+
 # Logging Configuration
 logging:
   level:
