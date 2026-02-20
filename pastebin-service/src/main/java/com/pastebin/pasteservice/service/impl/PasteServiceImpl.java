@@ -7,6 +7,7 @@ import com.pastebin.pasteservice.model.entity.Paste;
 import com.pastebin.pasteservice.repository.PasteRepository;
 import com.pastebin.pasteservice.service.PasteService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -62,6 +63,13 @@ public class PasteServiceImpl implements PasteService {
     @Override
     public long deleteExpiredPastes() {
         return pasteRepository.deleteByExpiresAtBefore(Instant.now());
+    }
+
+    @Scheduled(fixedRate = 3600000)
+    @Transactional
+    public void cleanupExpiredPastes() {
+        long deleted = pasteRepository.deleteByExpiresAtBefore(Instant.now());
+        log.info("Cleaned up {} expired pastes", deleted);
     }
 
     @Override
