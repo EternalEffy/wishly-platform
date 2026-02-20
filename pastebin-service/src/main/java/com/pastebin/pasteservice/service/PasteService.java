@@ -1,6 +1,6 @@
 package com.pastebin.pasteservice.service;
 
-import com.pastebin.pasteservice.model.entity.Paste;
+import com.pastebin.pasteservice.entity.Paste;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
@@ -8,12 +8,12 @@ import java.time.Instant;
 public interface PasteService {
     @Transactional
     Paste createPaste(String content, Instant expiresAt);
+
     Paste getPasteByHash(String hash);
 
-    @Transactional
-    long deleteExpiredPastes();
+    String getPasteContent(Paste paste);
 
     @Transactional
     boolean deletePaste(String hash);
-    boolean existPaste(String hash);
+
 }

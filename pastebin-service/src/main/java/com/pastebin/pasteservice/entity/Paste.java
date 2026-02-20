@@ -1,4 +1,4 @@
-package com.pastebin.pasteservice.model.entity;
+package com.pastebin.pasteservice.entity;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
@@ -21,13 +21,17 @@ import java.time.Instant;
 public class Paste {
     @Id
     @NotBlank
-    @Column (nullable = false,length = 50)
+    @Column(nullable = false, length = 50)
     private String hash;
 
-    @NotBlank
-    @Size(min = 1,max = 10000)
-    @Column (nullable = false, columnDefinition = "TEXT")
-    private String content;
+    @Column(name = "blob_key", nullable = false)
+    private String blobKey;
+
+    @Column(name = "content_type")
+    private String contentType = "text/plain";
+
+    @Column(name = "content_size")
+    private Long contentSize;
 
     @NotNull
     @Column(nullable = false, updatable = false)
