@@ -16,14 +16,18 @@ Distributed Pastebin Service built with Spring Boot Microservices Architecture.
 ```mermaid
 graph LR
     G[🌐 Gateway<br/>Port 8080] --> PS[📋 Paste Service<br/>Port 8082]
+    G --> AS[🔐 Auth Service<br/>Port 8083]
     PS --> HG[🔐 Hash Generator<br/>Port 8081]
     PS --> DB[(🗄️ PostgreSQL<br/>metadata)]
     PS --> MO[(📦 MinIO<br/>content)]
+    AS --> AUTHDB[(🗄️ PostgreSQL<br/>authdb)]
     HG --> RD[(🔴 Redis<br/>hash pool)]
     
     style G fill:#4CAF50,stroke:#333,stroke-width:2px,color:white
     style PS fill:#2196F3,stroke:#333,stroke-width:2px,color:white
     style HG fill:#FF9800,stroke:#333,stroke-width:2px,color:white
+    style AS fill:#9C27B0,stroke:#333,stroke-width:2px,color:white
+    style AUTHDB fill:#9C27B0,stroke:#333,stroke-width:2px,color:white
     style DB fill:#9C27B0,stroke:#333,stroke-width:2px,color:white
     style MO fill:#FF5722,stroke:#333,stroke-width:2px,color:white
     style RD fill:#F44336,stroke:#333,stroke-width:2px,color:white
@@ -66,6 +70,7 @@ graph LR
 | Module | Port | Description |
 |--------|------|-------------|
 | **pastebin-gateway** | 8080 | API Gateway - routing, rate limiting |
+| **pastebin-auth-service** | 8083 | JWT authentication (register, login, refresh, logout) |
 | **paste-service** | 8082 | Main service - CRUD operations for pastes |
 | **hash-generator-service** | 8081 | Hash generation with Redis |
 | **pastebin-common** | — | Shared DTOs, utils, exceptions |
@@ -73,6 +78,28 @@ graph LR
 ---
 
 ## 🔌 API Endpoints
+
+### Auth Service (Port 8083)
+
+| Method | Endpoint | Description | Status |
+|--------|----------|-------------|--------|
+| `POST` | `/api/auth/register` | Register new user | ✅ Implemented |
+| `POST` | `/api/auth/login` | Login and get JWT tokens | ✅ Implemented |
+| `POST` | `/api/auth/refresh` | Refresh access token | ✅ Implemented |
+| `POST` | `/api/auth/logout` | Logout and revoke tokens | ✅ Implemented |
+
+**Example:**
+``` bash
+# Register
+curl -X POST http://localhost:8083/api/auth/register \
+-H "Content-Type: application/json" \
+-d '{"email":"user@example.com","password":"Password123"}'
+
+# Login
+curl -X POST http://localhost:8083/api/auth/login \
+-H "Content-Type: application/json" \
+-d '{"email":"user@example.com","password":"Password123"}'
+```
 
 ### Paste Service (Port 8082)
 
