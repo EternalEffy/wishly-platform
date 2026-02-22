@@ -3,13 +3,11 @@ server:
 
 spring:
   application:
-    name: hash-generator-service
+    name: pastebin-hash-generator-service
 
-  # Redis Configuration
   redis:
-    host: ${SPRING_REDIS_HOST:redis}
-    port: ${SPRING_REDIS_PORT:6379}
-    password: ${REDIS_PASSWORD:}
+    host: ${REDIS_HOST:redis}
+    port: ${REDIS_PORT:6379}
     timeout: ${REDIS_TIMEOUT:60000}
     lettuce:
       pool:
@@ -17,13 +15,11 @@ spring:
         max-idle: ${REDIS_POOL_IDLE:5}
         min-idle: ${REDIS_POOL_MIN:2}
 
-  # JPA Configuration
   jpa:
     hibernate:
       ddl-auto: none
     show-sql: false
 
-# Hash Generation Settings
 hash:
   generator:
     pool-key: ${POOL_KEY:hash:pool}
@@ -31,7 +27,7 @@ hash:
     pool:
       threshold: ${POOL_THRESHOLD:100}
       batch-size: ${POOL_BATCH_SIZE:1000}
-# Logging Configuration
+
 logging:
   level:
     root: ${LOG_LEVEL_ROOT:INFO}

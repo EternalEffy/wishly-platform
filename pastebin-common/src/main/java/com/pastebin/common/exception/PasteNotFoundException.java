@@ -1,13 +1,11 @@
 package com.pastebin.common.exception;
 
-import lombok.Getter;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
-@Getter
-public class PasteNotFoundException extends RuntimeException {
-    private final String hash;
+public class PasteNotFoundException extends ResponseStatusException {
 
     public PasteNotFoundException(String hash) {
-        super("Paste not found: " + hash);
-        this.hash = hash;
+        super(HttpStatus.NOT_FOUND, "Paste not found: " + hash);
     }
 }

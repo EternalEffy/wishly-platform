@@ -1,3 +1,5 @@
+name: pastebin-system
+
 services:
   # PostgreSQL Database
   postgres:
@@ -12,6 +14,7 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U user -d pastebin" ]
       interval: 10s
@@ -61,6 +64,34 @@ services:
     networks:
       - pastebin-network
 
+  # Auth Service
+  auth-service:
+    build:
+      context: .
+      dockerfile: pastebin-auth-service/Dockerfile
+    container_name: pastebin-auth-service
+    restart: unless-stopped
+    ports:
+      - "8083:8083"
+    environment:
+      - SERVER_PORT=${SERVER_PORT_AUTH:-8083}
+      - DB_HOST=${DB_HOST:-postgres}
+      - DB_PORT=${DB_PORT:-5432}
+      - DB_NAME=${DB_NAME_AUTH:-authdb}
+      - DB_USERNAME=${DB_USERNAME:-user}
+      - DB_PASSWORD=${DB_PASSWORD:-password}
+      - DB_DDL_AUTO=${DB_DDL_AUTO:-update}
+      - JWT_SECRET=${JWT_SECRET:-your-super-secret-key-min-32-characters}
+      - JWT_ACCESS_EXPIRATION=${JWT_ACCESS_EXPIRATION:-900000}
+      - JWT_REFRESH_EXPIRATION=${JWT_REFRESH_EXPIRATION:-604800000}
+      - LOG_LEVEL_ROOT=${LOG_LEVEL_ROOT:-INFO}
+      - LOG_LEVEL_APP=${LOG_LEVEL_APP:-DEBUG}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - pastebin-network
+
   # Paste Service
   paste-service:
     build:
@@ -71,23 +102,23 @@ services:
     ports:
       - "8082:8082"
     environment:
-      - SERVER_PORT=8082
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_NAME=pastebin
-      - DB_USERNAME=user
-      - DB_PASSWORD=password
-      - DB_DDL_AUTO=update
-      - DB_SHOW_SQL=true
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - MINIO_URL=http://minio:9000
-      - MINIO_ACCESS_KEY=minioadmin
-      - MINIO_SECRET_KEY=minioadmin
-      - MINIO_BUCKET_NAME=pastes
-      - HASH_SERVICE_URL=http://hash-generator-service:8081
-      - LOG_LEVEL_ROOT=INFO
-      - LOG_LEVEL_APP=DEBUG
+      - SERVER_PORT=${SERVER_PORT_PASTE:-8082}
+      - DB_HOST=${DB_HOST:-postgres}
+      - DB_PORT=${DB_PORT:-5432}
+      - DB_NAME=${DB_NAME_PASTES:-pastesdb}
+      - DB_USERNAME=${DB_USERNAME:-user}
+      - DB_PASSWORD=${DB_PASSWORD:-password}
+      - DB_DDL_AUTO=${DB_DDL_AUTO:-update}
+      - DB_SHOW_SQL=${DB_SHOW_SQL:-false}
+      - REDIS_HOST=${REDIS_HOST:-redis}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - MINIO_URL=${MINIO_URL:-http://minio:9000}
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-minioadmin}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-minioadmin}
+      - MINIO_BUCKET_NAME=${MINIO_BUCKET_NAME:-pastes}
+      - HASH_SERVICE_URL=${HASH_SERVICE_URL:-http://hash-generator-service:8081}
+      - LOG_LEVEL_ROOT=${LOG_LEVEL_ROOT:-INFO}
+      - LOG_LEVEL_APP=${LOG_LEVEL_APP:-DEBUG}
     depends_on:
       postgres:
         condition: service_healthy
@@ -106,11 +137,11 @@ services:
     ports:
       - "8081:8081"
     environment:
-      - SERVER_PORT=8081
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - LOG_LEVEL_ROOT=INFO
-      - LOG_LEVEL_APP=DEBUG
+      - SERVER_PORT=${SERVER_PORT_HASH:-8081}
+      - REDIS_HOST=${REDIS_HOST:-redis}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - LOG_LEVEL_ROOT=${LOG_LEVEL_ROOT:-INFO}
+      - LOG_LEVEL_APP=${LOG_LEVEL_APP:-DEBUG}
     depends_on:
       redis:
         condition: service_healthy
@@ -127,13 +158,14 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - SERVER_PORT=8080
-      - PASTE_SERVICE_URL=http://paste-service:8082
-      - HASH_SERVICE_URL=http://hash-generator-service:8081
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - LOG_LEVEL_ROOT=INFO
-      - LOG_LEVEL_APP=DEBUG
+      - SERVER_PORT=${SERVER_PORT_GATEWAY:-8080}
+      - PASTE_SERVICE_URL=${PASTE_SERVICE_URL:-http://paste-service:8082}
+      - HASH_SERVICE_URL=${HASH_SERVICE_URL:-http://hash-generator-service:8081}
+      - AUTH_SERVICE_URL=${AUTH_SERVICE_URL:-http://auth-service:8083}
+      - REDIS_HOST=${REDIS_HOST:-redis}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - LOG_LEVEL_ROOT=${LOG_LEVEL_ROOT:-INFO}
+      - LOG_LEVEL_APP=${LOG_LEVEL_APP:-DEBUG}
     depends_on:
       - paste-service
       - hash-generator-service

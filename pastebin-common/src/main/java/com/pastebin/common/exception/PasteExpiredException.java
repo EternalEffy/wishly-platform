@@ -1,16 +1,11 @@
 package com.pastebin.common.exception;
 
-import lombok.Getter;
 import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.server.ResponseStatusException;
 
-@Getter
-@ResponseStatus(HttpStatus.GONE)  // 410 Gone
-public class PasteExpiredException extends RuntimeException {
-    private final String hash;
+public class PasteExpiredException extends ResponseStatusException {
 
     public PasteExpiredException(String hash) {
-        super("Paste has expired: " + hash);
-        this.hash = hash;
+        super(HttpStatus.GONE, "Paste has expired: " + hash);
     }
 }

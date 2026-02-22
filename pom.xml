@@ -15,6 +15,7 @@
         <module>pastebin-service</module>
         <module>hash-generator-service</module>
         <module>pastebin-gateway</module>
+        <module>pastebin-auth-service</module>
     </modules>
 
     <properties>

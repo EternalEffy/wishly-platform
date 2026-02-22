@@ -1,7 +1,11 @@
 package com.pastebin.common.exception;
 
-public class HashPoolExhaustedException extends RuntimeException {
-    public HashPoolExhaustedException(String message) {
-        super(message);
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
+
+public class HashPoolExhaustedException extends ResponseStatusException {
+
+    public HashPoolExhaustedException() {
+        super(HttpStatus.SERVICE_UNAVAILABLE, "Hash pool exhausted. Please retry.");
     }
 }

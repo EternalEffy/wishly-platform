@@ -5,7 +5,6 @@ spring:
   application:
     name: pastebin-gateway
 
-  # Cloud Gateway Routes
   cloud:
     gateway:
       discovery:
@@ -13,9 +12,17 @@ spring:
           enabled: false
 
       routes:
-        # Route to Paste Service
+        # Auth Service
+        - id: auth-service
+          uri: ${AUTH_SERVICE_URL:http://auth-service:8083}
+          predicates:
+            - Path=/api/auth/**
+          filters:
+            - StripPrefix=0
+
+        # Paste Service
         - id: paste-service
-          uri: ${PASTE_SERVICE_URL:http://localhost:8082}
+          uri: ${PASTE_SERVICE_URL:http://paste-service:8082}
           predicates:
             - Path=/api/pastes/**
           filters:
@@ -31,32 +38,26 @@ spring:
                   factor: 2
                   basedOnPreviousValue: false
 
-        # Route to Hash Generator Service
+        # Hash Generator Service
         - id: hash-generator-service
-          uri: ${HASH_SERVICE_URL:http://localhost:8081}
+          uri: ${HASH_SERVICE_URL:http://hash-generator-service:8081}
           predicates:
             - Path=/api/hash/**
           filters:
             - StripPrefix=0
-            - name: Retry
-              args:
-                retries: 3
-                statuses: BAD_GATEWAY,SERVICE_UNAVAILABLE
 
-        # Health check endpoint
+        # Health Check
         - id: health-route
-          uri: ${PASTE_SERVICE_URL:http://localhost:8082}
+          uri: ${PASTE_SERVICE_URL:http://paste-service:8082}
           predicates:
             - Path=/health/**
           filters:
             - StripPrefix=0
 
-# Redis Configuration
 redis:
   host: ${REDIS_HOST:redis}
   port: ${REDIS_PORT:6379}
 
-# Logging Configuration
 logging:
   level:
     root: ${LOG_LEVEL_ROOT:INFO}

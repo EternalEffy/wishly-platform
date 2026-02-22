@@ -8,6 +8,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
+import javax.naming.ServiceUnavailableException;
+
 @Slf4j
 @Component
 public class RedisHashGenerator implements HashGenerator {
@@ -34,12 +36,12 @@ public class RedisHashGenerator implements HashGenerator {
 
             String hash = redisTemplate.opsForList().leftPop(poolKey);
             if (hash == null) {
-                throw new HashPoolExhaustedException("No hashes available in pool");
+                throw new HashPoolExhaustedException();
             }
             return hash;
         } catch (RedisConnectionException e) {
-            log.error("Redis connection failed: {}", e.getMessage());
-            throw new HashPoolExhaustedException("Redis unavailable");
+            log.error("Redis connection failed: {}", e.getMessage(), e);
+            throw new RuntimeException("Service temporarily unavailable", e);
         }
     }
 }

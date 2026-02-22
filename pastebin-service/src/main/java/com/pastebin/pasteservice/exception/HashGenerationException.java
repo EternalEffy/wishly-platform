@@ -5,7 +5,7 @@ public class HashGenerationException extends RuntimeException {
         super(message);
     }
 
-    public HashGenerationException(String message, Exception e) {
-        super(message, e);
+    public HashGenerationException(String message, Throwable cause) {
+        super(message, cause);
     }
 }
