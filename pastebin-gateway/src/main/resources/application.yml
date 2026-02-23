@@ -4,6 +4,10 @@ server:
 spring:
   application:
     name: pastebin-gateway
+  data:
+    redis:
+      host: ${REDIS_HOST:redis}
+      port: ${REDIS_PORT:6379}
 
   cloud:
     gateway:
@@ -54,9 +58,21 @@ spring:
           filters:
             - StripPrefix=0
 
-redis:
-  host: ${REDIS_HOST:redis}
-  port: ${REDIS_PORT:6379}
+jwt:
+  secret: ${JWT_SECRET}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
+  health:
+    redis:
+      enabled: true
+
 
 logging:
   level:

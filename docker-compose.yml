@@ -164,11 +164,16 @@ services:
       - AUTH_SERVICE_URL=${AUTH_SERVICE_URL:-http://auth-service:8083}
       - REDIS_HOST=${REDIS_HOST:-redis}
       - REDIS_PORT=${REDIS_PORT:-6379}
+      - JWT_SECRET=${JWT_SECRET}
       - LOG_LEVEL_ROOT=${LOG_LEVEL_ROOT:-INFO}
       - LOG_LEVEL_APP=${LOG_LEVEL_APP:-DEBUG}
     depends_on:
-      - paste-service
-      - hash-generator-service
+      paste-service:
+        condition: service_started
+      hash-generator-service:
+        condition: service_started
+      redis:
+        condition: service_healthy
     networks:
       - pastebin-network
 
