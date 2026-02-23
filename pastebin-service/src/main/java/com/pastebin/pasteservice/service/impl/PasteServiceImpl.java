@@ -14,6 +14,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
 
 @Service
 @Slf4j
@@ -31,8 +33,8 @@ public class PasteServiceImpl implements PasteService {
 
     @Override
     @Transactional
-    public Paste createPaste(String content, Instant expiresAt) {
-        log.info("Creating new paste, content length: {}", content.length());
+    public Paste createPaste(String content, Instant expiresAt, UUID ownerId) {
+        log.info("Creating new paste for user: {}, content length: {}", ownerId, content.length());
 
         validateExpiration(expiresAt);
 
@@ -48,16 +50,17 @@ public class PasteServiceImpl implements PasteService {
                 .contentSize((long) content.length())
                 .createdAt(Instant.now())
                 .expiresAt(expiresAt)
+                .ownerId(ownerId)
                 .build();
 
         Paste saved = pasteRepository.save(paste);
-        log.info("Paste created successfully with hash: {}", saved.getHash());
+        log.info("Paste created successfully with hash: {} for user: {}", saved.getHash(), ownerId);
 
         return saved;
     }
 
     @Override
-    public Paste getPasteByHash(String hash) {
+    public Paste getPasteByHash(String hash, UUID ownerId) {
         Paste paste = pasteRepository.findById(hash)
                 .orElseThrow(() -> new PasteNotFoundException(hash));
 
@@ -75,17 +78,25 @@ public class PasteServiceImpl implements PasteService {
 
     @Override
     @Transactional
-    public boolean deletePaste(String hash) {
-        if (!pasteRepository.existsById(hash)) {
-            return false;
-        }
+    public boolean deletePaste(String hash, UUID ownerId) {
+        Paste paste = pasteRepository.findByHashAndOwnerId(hash, ownerId)
+                .orElseThrow(() -> {
+                    return pasteRepository.findById(hash)
+                            .map(p -> new RuntimeException("Paste does not belong to you"))
+                            .orElse(new PasteNotFoundException(hash));
+                });
 
-        Paste paste = pasteRepository.findById(hash).orElseThrow();
         blobStorageService.delete(paste.getBlobKey());
         pasteRepository.deleteById(hash);
 
-        log.info("Paste deleted: {}", hash);
+        log.info("Paste deleted: {} by user: {}", hash, ownerId);
         return true;
+    }
+
+    @Override
+    public List<Paste> getMyPastes(UUID ownerId) {
+        log.info("Getting all pastes for user: {}", ownerId);
+        return pasteRepository.findByOwnerId(ownerId);
     }
 
     private void validateExpiration(Instant expiresAt) {

@@ -9,6 +9,7 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.Instant;
+import java.util.UUID;
 
 @Entity
 @Table(name = "pastes")
@@ -32,6 +33,9 @@ public class Paste {
 
     @Column(name = "content_size")
     private Long contentSize;
+
+    @Column(name = "ownerId", nullable = false)
+    private UUID ownerId;
 
     @NotNull
     @Column(nullable = false, updatable = false)
