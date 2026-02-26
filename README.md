@@ -42,27 +42,77 @@ graph LR
 
 ---
 
-## 👥 User Flow
-### Share Text with Expiration
+## 🔐 Authentication
+
+### Overview
+
+The system uses JWT-based authentication with access and refresh tokens.
+
+| Token | Lifetime | Storage | Purpose |
+|-------|----------|---------|---------|
+| Access Token | 15 minutes | Client memory | API authorization |
+| Refresh Token | 7 days | HttpOnly cookie / DB | Get new access token |
+
+### Security
+
+- Passwords hashed with BCrypt (cost factor 12)
+- Refresh tokens hashed with SHA-256 before DB storage
+- Token rotation on refresh (old token revoked)
+- Token revocation on logout
+
+### Example Usage
+
+```bash
+# 1. Login
+curl -X POST http://localhost:8080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@example.com","password":"Password123"}'
+
+# 2. Use access token
+curl http://localhost:8080/api/pastes/my \
+  -H "Authorization: Bearer <ACCESS_TOKEN>"
+
+# 3. Refresh token
+curl -X POST http://localhost:8080/api/auth/refresh \
+  -H "Content-Type: application/json" \
+  -d '{"refreshToken":"<REFRESH_TOKEN>"}'
 ```
-┌─────────────┐                              ┌─────────────┐
-│  User A     │                              │  User B     │
-│             │                              │             │
-│  1. Create  │                              │             │
-│  paste with │                              │             │
-│  expiration │                              │             │
-│     │       │                              │             │
-│     ▼       │                              │             │
-│  2. Get     │                              │             │
-│  shareable  │────── Send Link ────────────►│  4. Open    │
-│  link       │     http://.../pastes/abc123 │     link    │
-│             │                              │             │
-│             │         ⏰ Time passes       │             │
-│             │                              │             │
-│             │                              │  5. Link    │
-│             │                              │  expired    │
-│             │                              │  (410 Gone) │
-└─────────────┘                              └─────────────┘
+
+## 👥 User Flow
+
+### Authentication & Paste Operations
+
+```mermaid
+sequenceDiagram
+    participant Client as "🖥️ Client"
+    participant Gateway as "🌐 Gateway"
+    participant Services as "⚙️ Services"
+    participant DB as "💾 Databases"
+
+    Client->>Gateway: 1. Login / API Request
+    Gateway->>Gateway: Validate JWT
+    Gateway->>Services: Add X-User-Id
+    Services->>DB: Auth/Paste
+    DB-->>Services: Response
+    Services-->>Gateway: Process Result
+    Gateway-->>Client: 3. Return Response
+```
+### Share Paste (Public)
+```mermaid
+flowchart LR
+    subgraph Owner["👤 Owner"]
+        A["Create Paste<br/>(authenticated)"] --> B["Share Link"]
+    end
+    
+    subgraph Viewer["👁️ Viewer"]
+        C["View Paste<br/>(no auth)"]
+    end
+    
+    B -->|"https://.../abc123"| C
+    
+    style A fill:#4CAF50,color:white,stroke:#333,stroke-width:2px
+    style B fill:#2196F3,color:white,stroke:#333,stroke-width:2px
+    style C fill:#FF9800,color:white,stroke:#333,stroke-width:2px
 ```
 
 ## 📦 Modules
@@ -81,12 +131,12 @@ graph LR
 
 ### Auth Service (Port 8083)
 
-| Method | Endpoint | Description | Status |
-|--------|----------|-------------|--------|
-| `POST` | `/api/auth/register` | Register new user | ✅ Implemented |
-| `POST` | `/api/auth/login` | Login and get JWT tokens | ✅ Implemented |
-| `POST` | `/api/auth/refresh` | Refresh access token | ✅ Implemented |
-| `POST` | `/api/auth/logout` | Logout and revoke tokens | ✅ Implemented |
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `POST` | `/api/auth/register` | No | Register new user |
+| `POST` | `/api/auth/login` | No | Login and get JWT tokens |
+| `POST` | `/api/auth/refresh` | No | Refresh access token |
+| `POST` | `/api/auth/logout` | Yes | Logout and revoke tokens |
 
 **Example:**
 ``` bash
@@ -100,20 +150,30 @@ curl -X POST http://localhost:8083/api/auth/login \
 -H "Content-Type: application/json" \
 -d '{"email":"user@example.com","password":"Password123"}'
 ```
+### Gateway (Port 8080)
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `POST` | `/api/pastes` | Yes | Create new paste |
+| `GET` | `/api/pastes/{hash}` | Optional | Get paste by hash |
+| `GET` | `/api/pastes/my` | Yes | Get your pastes |
+| `DELETE` | `/api/pastes/{hash}` | Yes | Delete paste (owner only) |
+| `GET` | `/api/hash?length=8` | Yes | Get unique hash from Redis |
 
 ### Paste Service (Port 8082)
 
-| Method | Endpoint | Description | Status |
-|--------|----------|-------------|--------|
-| `POST` | `/api/pastes` | Create new paste | ✅ Implemented |
-| `GET` | `/api/pastes/{hash}` | Get paste by hash | ✅ Implemented |
-| `DELETE` | `/api/pastes/{hash}` | Delete paste | ✅ Implemented |
+| Method | Endpoint | Description 
+|--------|----------|-------------
+| `GET` | `/api/pastes/my` | Get your pastes |
+| `POST` | `/api/pastes` | Create new paste |
+| `GET` | `/api/pastes/{hash}` | Get paste by hash |
+| `DELETE` | `/api/pastes/{hash}` | Delete paste |
 
 ### Hash Generator Service (Port 8081)
 
-| Method | Endpoint | Description | Status |
-|--------|----------|-------------|--------|
-| `GET` | `/api/hash?length=8` | Get unique hash from Redis pool | ✅ Implemented |
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/hash?length=8` | Get unique hash from Redis pool |
 
 **Example:**
 ``` bash
@@ -123,9 +183,9 @@ curl http://localhost:8081/api/hash?length=8
 
 ### Health Check
 
-| Method | Endpoint | Description | Status |
-|--------|----------|-------------|--------|
-| `GET` | `/health` | Service health status | ✅ Implemented |
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/health` | Service health status |
 
 
 ## 🚀 Quick Start
