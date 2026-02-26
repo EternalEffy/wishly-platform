@@ -138,18 +138,6 @@ flowchart LR
 | `POST` | `/api/auth/refresh` | No | Refresh access token |
 | `POST` | `/api/auth/logout` | Yes | Logout and revoke tokens |
 
-**Example:**
-``` bash
-# Register
-curl -X POST http://localhost:8083/api/auth/register \
--H "Content-Type: application/json" \
--d '{"email":"user@example.com","password":"Password123"}'
-
-# Login
-curl -X POST http://localhost:8083/api/auth/login \
--H "Content-Type: application/json" \
--d '{"email":"user@example.com","password":"Password123"}'
-```
 ### Gateway (Port 8080)
 
 | Method | Endpoint | Auth | Description |
@@ -210,23 +198,6 @@ mvn clean install
 ```bash
 docker-compose up -d
 ```
-### 4. Test API
-```bash
-# Create paste
-curl -X POST http://localhost:8080/api/pastes \
-  -H "Content-Type: application/json" \
-  -d '{"content":"Hello World"}'
-
-# Get paste
-curl http://localhost:8080/api/pastes/{hash}
-
-# Check Redis hash pool
-docker-compose exec redis redis-cli LLEN hash:pool
-
-# Check MinIO content
-docker-compose exec minio mc alias set myminio http://localhost:9000 minioadmin minioadmin
-docker-compose exec minio mc ls myminio/pastes/
-```
 ## 🔴 Redis Hash Pool
 
 The hash-generator-service uses a **pre-generated hash pool** for high performance:
@@ -242,7 +213,6 @@ The hash-generator-service uses a **pre-generated hash pool** for high performan
 **Benefits:**
 - ⚡ Fast hash generation (~1ms vs ~50ms for on-demand)
 - 🔄 Automatic pool replenishment
-- 📊 Monitor pool size: `docker-compose exec redis redis-cli LLEN hash:pool`
 
 ---
 
