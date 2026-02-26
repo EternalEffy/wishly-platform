@@ -58,6 +58,13 @@ spring:
           filters:
             - StripPrefix=0
 
+# Rate Limiting Configuration
+rate-limit:
+  enabled: true
+  max-tokens: 100
+  refill-rate: 10
+  key-prefix: "rate-limit:"
+
 jwt:
   secret: ${JWT_SECRET}
 
