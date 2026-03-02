@@ -3,11 +3,12 @@ package com.pastebin.pasteservice.service.impl;
 import com.pastebin.common.exception.PasteExpiredException;
 import com.pastebin.common.exception.PasteNotFoundException;
 import com.pastebin.common.generator.HashGenerator;
-import com.pastebin.pasteservice.entity.Paste;
+import com.pastebin.pasteservice.exception.AccessDeniedException;
+import com.pastebin.pasteservice.model.entity.Paste;
+import com.pastebin.pasteservice.model.enums.Privacy;
 import com.pastebin.pasteservice.repository.PasteRepository;
 import com.pastebin.pasteservice.service.PasteService;
 import com.pastebin.pasteservice.service.blob.BlobStorageService;
-import io.minio.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -33,7 +34,7 @@ public class PasteServiceImpl implements PasteService {
 
     @Override
     @Transactional
-    public Paste createPaste(String content, Instant expiresAt, UUID ownerId) {
+    public Paste createPaste(String content, Instant expiresAt, UUID ownerId, Privacy privacy) {
         log.info("Creating new paste for user: {}, content length: {}", ownerId, content.length());
 
         validateExpiration(expiresAt);
@@ -51,6 +52,7 @@ public class PasteServiceImpl implements PasteService {
                 .createdAt(Instant.now())
                 .expiresAt(expiresAt)
                 .ownerId(ownerId)
+                .privacy(privacy)
                 .build();
 
         Paste saved = pasteRepository.save(paste);
@@ -68,12 +70,23 @@ public class PasteServiceImpl implements PasteService {
             throw new PasteExpiredException(hash);
         }
 
+        if (paste.getPrivacy() == Privacy.PRIVATE) {
+            if (!paste.getOwnerId().equals(ownerId)) {
+                throw new AccessDeniedException("Authentication required");
+            }
+        }
+
         return paste;
     }
 
     @Override
     public String getPasteContent(Paste paste) {
         return blobStorageService.retrieve(paste.getBlobKey());
+    }
+
+    @Override
+    public List<Paste> getUserPublicPastes(UUID ownerId) {
+        return pasteRepository.findByOwnerIdAndPrivacy(ownerId, Privacy.PUBLIC);
     }
 
     @Override

@@ -1,6 +1,7 @@
 package com.pastebin.pasteservice.service;
 
-import com.pastebin.pasteservice.entity.Paste;
+import com.pastebin.pasteservice.model.entity.Paste;
+import com.pastebin.pasteservice.model.enums.Privacy;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
@@ -9,11 +10,13 @@ import java.util.UUID;
 
 public interface PasteService {
     @Transactional
-    Paste createPaste(String content, Instant expiresAt, UUID ownerId);
+    Paste createPaste(String content, Instant expiresAt, UUID ownerId, Privacy privacy);
 
     Paste getPasteByHash(String hash, UUID ownerId);
 
     String getPasteContent(Paste paste);
+
+    List<Paste> getUserPublicPastes(UUID ownerId);
 
     @Transactional
     boolean deletePaste(String hash, UUID ownerId);

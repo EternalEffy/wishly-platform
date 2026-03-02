@@ -1,6 +1,6 @@
 package com.pastebin.pasteservice.scheduler;
 
-import com.pastebin.pasteservice.entity.Paste;
+import com.pastebin.pasteservice.model.entity.Paste;
 import com.pastebin.pasteservice.repository.PasteRepository;
 import com.pastebin.pasteservice.service.blob.BlobStorageService;
 import lombok.RequiredArgsConstructor;

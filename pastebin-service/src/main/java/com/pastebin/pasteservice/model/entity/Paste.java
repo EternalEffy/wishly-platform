@@ -1,5 +1,6 @@
-package com.pastebin.pasteservice.entity;
+package com.pastebin.pasteservice.model.entity;
 
+import com.pastebin.pasteservice.model.enums.Privacy;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -16,7 +17,7 @@ import java.util.UUID;
 @EntityListeners(AuditingEntityListener.class)
 @Getter
 @Setter
-@NoArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Builder
 public class Paste {
@@ -24,6 +25,10 @@ public class Paste {
     @NotBlank
     @Column(nullable = false, length = 50)
     private String hash;
+
+    @Column(nullable = false,name = "privacy")
+    @Enumerated(EnumType.STRING)
+    private Privacy privacy = Privacy.UNLISTED;
 
     @Column(name = "blob_key", nullable = false)
     private String blobKey;
@@ -34,7 +39,7 @@ public class Paste {
     @Column(name = "content_size")
     private Long contentSize;
 
-    @Column(name = "ownerId", nullable = false)
+    @Column(name = "owner_id", nullable = false)
     private UUID ownerId;
 
     @NotNull

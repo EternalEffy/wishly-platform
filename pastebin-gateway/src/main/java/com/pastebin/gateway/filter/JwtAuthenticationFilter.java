@@ -26,6 +26,7 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
             "/api/auth/login",
             "/api/auth/refresh",
             "/api/auth/logout",
+            "/api/pastes/user/",
             "/actuator/health",
             "/health"
     );
@@ -33,16 +34,32 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         String path = exchange.getRequest().getPath().value();
+        String authHeader = exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
 
-        if (isPublicPath(path)) {
-            log.debug("Public path: {}", path);
+        if (path.matches("^/api/pastes/[a-zA-Z0-9]+$")) {
+            if (authHeader != null && authHeader.startsWith("Bearer ")) {
+                String token = authHeader.substring(7);
+
+                if (jwtTokenProvider.validateToken(token)) {
+                    UUID userId = jwtTokenProvider.extractUserId(token);
+
+                    ServerWebExchange modifiedExchange = exchange.mutate()
+                            .request(exchange.getRequest().mutate()
+                                    .header("X-User-Id", userId.toString())
+                                    .build())
+                            .build();
+
+                    return chain.filter(modifiedExchange);
+                }
+            }
             return chain.filter(exchange);
         }
 
-        String authHeader = exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
+        if (isPublicPath(path)) {
+            return chain.filter(exchange);
+        }
 
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            log.warn("Missing or invalid Authorization header for path: {}", path);
             exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
             return exchange.getResponse().setComplete();
         }
@@ -50,13 +67,11 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
         String token = authHeader.substring(7);
 
         if (!jwtTokenProvider.validateToken(token)) {
-            log.warn("Invalid JWT token for path: {}", path);
             exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
             return exchange.getResponse().setComplete();
         }
 
         UUID userId = jwtTokenProvider.extractUserId(token);
-        log.debug("Authenticated user: {} for path: {}", userId, path);
 
         ServerWebExchange modifiedExchange = exchange.mutate()
                 .request(exchange.getRequest().mutate()
@@ -68,7 +83,14 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
     }
 
     private boolean isPublicPath(String path) {
-        return PUBLIC_PATHS.stream().anyMatch(path::startsWith);
+        boolean isExactMatch = PUBLIC_PATHS.stream()
+                .anyMatch(path::startsWith);
+
+        if (isExactMatch) {
+            return true;
+        }
+
+        return path.matches("^/api/pastes/[a-zA-Z0-9]+$");
     }
 
 

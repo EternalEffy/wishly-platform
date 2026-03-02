@@ -2,7 +2,7 @@ package com.pastebin.pasteservice.controller;
 
 import com.pastebin.pasteservice.dto.CreatePasteRequest;
 import com.pastebin.pasteservice.dto.PasteResponse;
-import com.pastebin.pasteservice.entity.Paste;
+import com.pastebin.pasteservice.model.entity.Paste;
 import com.pastebin.pasteservice.service.PasteService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -25,7 +25,7 @@ public class PasteController {
     public ResponseEntity<Paste> createPaste(
             @Validated @RequestBody CreatePasteRequest request,
             @RequestHeader("X-User-Id") UUID ownerId) {
-        Paste paste = pasteService.createPaste(request.content(), request.expiresAt(), ownerId);
+        Paste paste = pasteService.createPaste(request.content(), request.expiresAt(), ownerId,request.privacy());
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .header("Location", "/api/pastes/" + paste.getHash())
@@ -74,6 +74,24 @@ public class PasteController {
                             paste.getExpiresAt()
                     );
                 })
+                .toList();
+
+        return ResponseEntity.ok(responses);
+    }
+
+    @GetMapping("/user/{userId}")
+    public ResponseEntity<List<PasteResponse>> getUserPastes(
+            @PathVariable UUID userId) {
+
+        List<Paste> pastes = pasteService.getUserPublicPastes(userId);
+
+        List<PasteResponse> responses = pastes.stream()
+                .map(paste -> new PasteResponse(
+                        paste.getHash(),
+                        null,
+                        paste.getCreatedAt(),
+                        paste.getExpiresAt()
+                ))
                 .toList();
 
         return ResponseEntity.ok(responses);
