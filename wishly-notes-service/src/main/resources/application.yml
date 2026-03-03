@@ -1,0 +1,55 @@
+server:
+  port: ${SERVER_PORT:8082}
+
+spring:
+  application:
+    name: wishly-notes-service
+
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:postgres}:${DB_PORT:5432}/${DB_NAME_NOTES:wishly}
+    username: ${DB_USERNAME:user}
+    password: ${DB_PASSWORD:password}
+    driver-class-name: org.postgresql.Driver
+
+    hikari:
+      maximum-pool-size: ${DB_POOL_MAX:10}
+      minimum-idle: ${DB_POOL_MIN:5}
+      connection-timeout: ${DB_TIMEOUT:30000}
+
+  jpa:
+    hibernate:
+      ddl-auto: ${DB_DDL_AUTO:update}
+    show-sql: ${DB_SHOW_SQL:false}
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  redis:
+    host: ${REDIS_HOST:redis}
+    port: ${REDIS_PORT:6379}
+    timeout: ${REDIS_TIMEOUT:60000}
+
+  minio:
+    url: ${MINIO_URL:http://minio:9000}
+    access-key: ${MINIO_ACCESS_KEY:minioadmin}
+    secret-key: ${MINIO_SECRET_KEY:minioadmin}
+    bucket-name: ${MINIO_BUCKET_NAME:notes}
+
+hash:
+  generator:
+    service:
+      url: ${HASH_SERVICE_URL:http://wishly-hash-generator-service:8081}
+
+http:
+  client:
+    connect-timeout: 5
+    read-timeout: 10
+
+logging:
+  level:
+    root: ${LOG_LEVEL_ROOT:INFO}
+    com.wishly.pasteservice: ${LOG_LEVEL_APP:DEBUG}
+    org.hibernate.SQL: ${LOG_LEVEL_SQL:DEBUG}
+    org.springframework.web: DEBUG
+    org.springframework.web.servlet: DEBUG

@@ -1,39 +1,39 @@
-name: pastebin-system
+name: wishly-platform
 
 services:
   # PostgreSQL Database
   postgres:
     image: postgres:15-alpine
-    container_name: pastebin-postgres
+    container_name: wishly-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: pastebin
+      POSTGRES_DB: wishly
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - wishly_postgres_data:/var/lib/postgresql/data
       - ./docker/postgres/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U user -d pastebin" ]
+      test: [ "CMD-SHELL", "pg_isready -U user -d wishly" ]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 10s
     networks:
-      - pastebin-network
+      - wishly-network
 
   # Redis Cache
   redis:
     image: redis:7-alpine
-    container_name: pastebin-redis
+    container_name: wishly-redis
     restart: unless-stopped
     command: redis-server --appendonly yes
     ports:
       - "6379:6379"
     volumes:
-      - redis_data:/data
+      - wishly_redis_data:/data
     healthcheck:
       test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
@@ -41,12 +41,12 @@ services:
       retries: 5
       start_period: 10s
     networks:
-      - pastebin-network
+      - wishly-network
 
   # MinIO Blob Storage
   minio:
     image: minio/minio
-    container_name: pastebin-minio
+    container_name: wishly-minio
     command: server /data --console-address ":9001"
     ports:
       - "9000:9000"
@@ -55,21 +55,21 @@ services:
       - MINIO_ROOT_USER=minioadmin
       - MINIO_ROOT_PASSWORD=minioadmin
     volumes:
-      - minio_data:/data
+      - wishly_minio_data:/data
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
-      - pastebin-network
+      - wishly-network
 
   # Auth Service
-  auth-service:
+  wishly-auth-service:
     build:
       context: .
-      dockerfile: pastebin-auth-service/Dockerfile
-    container_name: pastebin-auth-service
+      dockerfile: wishly-auth-service/Dockerfile
+    container_name: wishly-auth-service
     restart: unless-stopped
     ports:
       - "8083:8083"
@@ -90,22 +90,22 @@ services:
       postgres:
         condition: service_healthy
     networks:
-      - pastebin-network
+      - wishly-network
 
-  # Paste Service
-  paste-service:
+  # Notes Service (formerly Paste)
+  wishly-notes-service:
     build:
       context: .
-      dockerfile: pastebin-service/Dockerfile
-    container_name: pastebin-service
+      dockerfile: wishly-notes-service/Dockerfile
+    container_name: wishly-notes-service
     restart: unless-stopped
     ports:
       - "8082:8082"
     environment:
-      - SERVER_PORT=${SERVER_PORT_PASTE:-8082}
+      - SERVER_PORT=${SERVER_PORT_NOTES:-8082}
       - DB_HOST=${DB_HOST:-postgres}
       - DB_PORT=${DB_PORT:-5432}
-      - DB_NAME=${DB_NAME_PASTES:-pastesdb}
+      - DB_NAME=${DB_NAME_NOTES:-notesdb}
       - DB_USERNAME=${DB_USERNAME:-user}
       - DB_PASSWORD=${DB_PASSWORD:-password}
       - DB_DDL_AUTO=${DB_DDL_AUTO:-update}
@@ -115,8 +115,8 @@ services:
       - MINIO_URL=${MINIO_URL:-http://minio:9000}
       - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-minioadmin}
       - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-minioadmin}
-      - MINIO_BUCKET_NAME=${MINIO_BUCKET_NAME:-pastes}
-      - HASH_SERVICE_URL=${HASH_SERVICE_URL:-http://hash-generator-service:8081}
+      - MINIO_BUCKET_NAME=${MINIO_BUCKET_NAME:-notes}
+      - HASH_SERVICE_URL=${HASH_SERVICE_URL:-http://wishly-hash-generator-service:8081}
       - LOG_LEVEL_ROOT=${LOG_LEVEL_ROOT:-INFO}
       - LOG_LEVEL_APP=${LOG_LEVEL_APP:-DEBUG}
     depends_on:
@@ -125,14 +125,14 @@ services:
       redis:
         condition: service_healthy
     networks:
-      - pastebin-network
+      - wishly-network
 
   # Hash Generator Service
-  hash-generator-service:
+  wishly-hash-generator-service:
     build:
       context: .
-      dockerfile: hash-generator-service/Dockerfile
-    container_name: hash-generator-service
+      dockerfile: wishly-hash-generator-service/Dockerfile
+    container_name: wishly-hash-generator-service
     restart: unless-stopped
     ports:
       - "8081:8081"
@@ -146,47 +146,76 @@ services:
       redis:
         condition: service_healthy
     networks:
-      - pastebin-network
+      - wishly-network
 
   # API Gateway
-  pastebin-gateway:
+  wishly-gateway:
     build:
       context: .
-      dockerfile: pastebin-gateway/Dockerfile
-    container_name: pastebin-gateway
+      dockerfile: wishly-gateway/Dockerfile
+    container_name: wishly-gateway
     restart: unless-stopped
     ports:
       - "8080:8080"
     environment:
       - SERVER_PORT=${SERVER_PORT_GATEWAY:-8080}
-      - PASTE_SERVICE_URL=${PASTE_SERVICE_URL:-http://paste-service:8082}
-      - HASH_SERVICE_URL=${HASH_SERVICE_URL:-http://hash-generator-service:8081}
-      - AUTH_SERVICE_URL=${AUTH_SERVICE_URL:-http://auth-service:8083}
+      - NOTES_SERVICE_URL=${NOTES_SERVICE_URL:-http://wishly-notes-service:8082}
+      - HASH_SERVICE_URL=${HASH_SERVICE_URL:-http://wishly-hash-generator-service:8081}
+      - AUTH_SERVICE_URL=${AUTH_SERVICE_URL:-http://wishly-auth-service:8083}
       - REDIS_HOST=${REDIS_HOST:-redis}
       - REDIS_PORT=${REDIS_PORT:-6379}
       - JWT_SECRET=${JWT_SECRET}
       - LOG_LEVEL_ROOT=${LOG_LEVEL_ROOT:-INFO}
       - LOG_LEVEL_APP=${LOG_LEVEL_APP:-DEBUG}
     depends_on:
-      paste-service:
+      wishly-notes-service:
         condition: service_started
-      hash-generator-service:
+      wishly-hash-generator-service:
         condition: service_started
       redis:
         condition: service_healthy
     networks:
-      - pastebin-network
+      - wishly-network
+
+  # Wishlist Service
+  wishly-wishlist-service:
+    build:
+      context: .
+      dockerfile: wishly-wishlist-service/Dockerfile
+    container_name: wishly-wishlist-service
+    restart: unless-stopped
+    ports:
+      - "8084:8084"
+    environment:
+      - SERVER_PORT=${SERVER_PORT_WISHLIST:-8084}
+      - DB_HOST=${DB_HOST:-postgres}
+      - DB_PORT=${DB_PORT:-5432}
+      - DB_NAME=${DB_NAME_WISHLIST:-wishlistdb}
+      - DB_USERNAME=${DB_USERNAME:-user}
+      - DB_PASSWORD=${DB_PASSWORD:-password}
+      - DB_DDL_AUTO=${DB_DDL_AUTO:-update}
+      - AUTH_SERVICE_URL=${AUTH_SERVICE_URL:-http://wishly-auth-service:8083}
+      - JWT_SECRET=${JWT_SECRET:-your-super-secret-key-min-32-characters}
+      - LOG_LEVEL_ROOT=${LOG_LEVEL_ROOT:-INFO}
+      - LOG_LEVEL_APP=${LOG_LEVEL_APP:-DEBUG}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      wishly-auth-service:
+        condition: service_started
+    networks:
+      - wishly-network
 
 # Volumes (Persistent Data)
 volumes:
-  postgres_data:
+  wishly_postgres_data:
     driver: local
-  redis_data:
+  wishly_redis_data:
     driver: local
-  minio_data:
+  wishly_minio_data:
     driver: local
 
 # Networks (Isolated Network)
 networks:
-  pastebin-network:
+  wishly-network:
     driver: bridge
