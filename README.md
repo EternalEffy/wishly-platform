@@ -1,9 +1,9 @@
-# 📋 Pastebin System
+# 🎁 Wishly Platform
 
-Distributed Pastebin Service built with Spring Boot Microservices Architecture.
+Multi-service content sharing platform with Notes, Wishlists, and Authentication.
 
 ![Java](https://img.shields.io/badge/Java-21-blue?style=for-the-badge&logo=openjdk)
-![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.3.0-green?style=for-the-badge&logo=spring-boot)
+![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.2.0-green?style=for-the-badge&logo=spring-boot)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-blue?style=for-the-badge&logo=postgresql)
 ![Redis](https://img.shields.io/badge/Redis-7-red?style=for-the-badge&logo=redis)
 ![MinIO](https://img.shields.io/badge/MinIO-S3-red?style=for-the-badge&logo=amazon-s3)
@@ -11,26 +11,30 @@ Distributed Pastebin Service built with Spring Boot Microservices Architecture.
 
 ---
 
-## 🏗 Architecture (v2.0)
+## 🏗 Architecture
 
 ```mermaid
 graph LR
-    G[🌐 Gateway<br/>Port 8080] --> PS[📋 Paste Service<br/>Port 8082]
+    G[🌐 Gateway<br/>Port 8080] --> NS[📝 Notes Service<br/>Port 8082]
     G --> AS[🔐 Auth Service<br/>Port 8083]
-    PS --> HG[🔐 Hash Generator<br/>Port 8081]
-    PS --> DB[(🗄️ PostgreSQL<br/>metadata)]
-    PS --> MO[(📦 MinIO<br/>content)]
+    G --> HS[🔑 Hash Generator<br/>Port 8081]
+    G --> WS[🎁 Wishlist Service<br/>Port 8084]
+    NS --> DB[(🗄️ PostgreSQL<br/>metadata)]
+    NS --> MO[(📦 MinIO<br/>content)]
     AS --> AUTHDB[(🗄️ PostgreSQL<br/>authdb)]
-    HG --> RD[(🔴 Redis<br/>hash pool)]
+    HS --> RD[(🔴 Redis<br/>hash pool)]
+    WS --> WDB[(🗄️ PostgreSQL<br/>wishlistdb)]
     
     style G fill:#4CAF50,stroke:#333,stroke-width:2px,color:white
-    style PS fill:#2196F3,stroke:#333,stroke-width:2px,color:white
-    style HG fill:#FF9800,stroke:#333,stroke-width:2px,color:white
+    style NS fill:#2196F3,stroke:#333,stroke-width:2px,color:white
+    style HS fill:#FF9800,stroke:#333,stroke-width:2px,color:white
     style AS fill:#9C27B0,stroke:#333,stroke-width:2px,color:white
+    style WS fill:#E91E63,stroke:#333,stroke-width:2px,color:white
     style AUTHDB fill:#9C27B0,stroke:#333,stroke-width:2px,color:white
-    style DB fill:#9C27B0,stroke:#333,stroke-width:2px,color:white
+    style DB fill:#2196F3,stroke:#333,stroke-width:2px,color:white
     style MO fill:#FF5722,stroke:#333,stroke-width:2px,color:white
     style RD fill:#F44336,stroke:#333,stroke-width:2px,color:white
+    style WDB fill:#E91E63,stroke:#333,stroke-width:2px,color:white
 ```
 ### Storage Strategy
 
@@ -69,7 +73,7 @@ curl -X POST http://localhost:8080/api/auth/login \
   -d '{"email":"user@example.com","password":"Password123"}'
 
 # 2. Use access token
-curl http://localhost:8080/api/pastes/my \
+curl http://localhost:8080/api/notes/my \
   -H "Authorization: Bearer <ACCESS_TOKEN>"
 
 # 3. Refresh token
@@ -92,20 +96,20 @@ sequenceDiagram
     Client->>Gateway: 1. Login / API Request
     Gateway->>Gateway: Validate JWT
     Gateway->>Services: Add X-User-Id
-    Services->>DB: Auth/Paste
+    Services->>DB: Auth/Notes
     DB-->>Services: Response
     Services-->>Gateway: Process Result
     Gateway-->>Client: 3. Return Response
 ```
-### Share Paste (Public)
+### Share Note (Public)
 ```mermaid
 flowchart LR
     subgraph Owner["👤 Owner"]
-        A["Create Paste<br/>(authenticated)"] --> B["Share Link"]
+        A["Create Note<br/>(authenticated)"] --> B["Share Link"]
     end
     
     subgraph Viewer["👁️ Viewer"]
-        C["View Paste<br/>(no auth)"]
+        C["View Note<br/>(no auth)"]
     end
     
     B -->|"https://.../abc123"| C
@@ -119,11 +123,12 @@ flowchart LR
 
 | Module | Port | Description |
 |--------|------|-------------|
-| **pastebin-gateway** | 8080 | API Gateway - routing, rate limiting |
-| **pastebin-auth-service** | 8083 | JWT authentication (register, login, refresh, logout) |
-| **paste-service** | 8082 | Main service - CRUD operations for pastes |
-| **hash-generator-service** | 8081 | Hash generation with Redis |
-| **pastebin-common** | — | Shared DTOs, utils, exceptions |
+| **wishly-gateway** | 8080 | API Gateway - routing, rate limiting |
+| **wishly-auth-service** | 8083 | JWT authentication (register, login, refresh, logout) |
+| **wishly-notes-service** | 8082 | Notes CRUD operations with MinIO storage |
+| **wishly-wishlist-service** | 8084 | Wishlist & Gift management (in development) |
+| **wishly-hash-generator-service** | 8081 | Hash generation with Redis |
+| **wishly-common** | — | Shared DTOs, utils, exceptions |
 
 ---
 
@@ -142,20 +147,22 @@ flowchart LR
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| `POST` | `/api/pastes` | Yes | Create new paste |
-| `GET` | `/api/pastes/{hash}` | Optional | Get paste by hash |
-| `GET` | `/api/pastes/my` | Yes | Get your pastes |
-| `DELETE` | `/api/pastes/{hash}` | Yes | Delete paste (owner only) |
+| `POST` | `/api/notes` | Yes | Create new note |
+| `GET` | `/api/notes/{hash}` | Optional | Get note by hash |
+| `GET` | `/api/notes/my` | Yes | Get your notes |
+| `DELETE` | `/api/notes/{hash}` | Yes | Delete note (owner only) |
 | `GET` | `/api/hash?length=8` | Yes | Get unique hash from Redis |
+| `POST` | `/api/wishlists` | Yes | Create wishlist (WIP) |
+| `GET` | `/api/wishlists/{id}` | Optional | Get wishlist (WIP) |
 
-### Paste Service (Port 8082)
+### Notes Service (Port 8082)
 
 | Method | Endpoint | Description 
 |--------|----------|-------------
-| `GET` | `/api/pastes/my` | Get your pastes |
-| `POST` | `/api/pastes` | Create new paste |
-| `GET` | `/api/pastes/{hash}` | Get paste by hash |
-| `DELETE` | `/api/pastes/{hash}` | Delete paste |
+| `GET` | `/api/notes/my` | Get your pastes |
+| `POST` | `/api/notes` | Create new paste |
+| `GET` | `/api/notes/{hash}` | Get paste by hash |
+| `DELETE` | `/api/notes/{hash}` | Delete paste |
 
 ### Hash Generator Service (Port 8081)
 
@@ -168,6 +175,16 @@ flowchart LR
 curl http://localhost:8081/api/hash?length=8
 # Response: cHjj6PzH
 ```
+
+### Wishlist Service (Port 8084) - In Development
+
+| Method | Endpoint | Description 
+|--------|----------|-------------
+| `POST` | `/api/wishlists` | Create new wishlist |
+| `GET` | `/api/wishlists/my` | Get your wishlists |
+| `GET` | `/api/wishlists/{id}` | Get wishlist by ID |
+| `POST` | `/api/wishlists/{id}/items` | Add gift item |
+| `POST` | `/api/wishlists/{id}/items/{itemId}/reserve` | Reserve gift |
 
 ### Health Check
 
@@ -187,8 +204,8 @@ curl http://localhost:8081/api/hash?length=8
 ### 1. Clone Repository
 
 ```bash
-git clone https://github.com/EternalEffy/pastebin-system.git
-cd pastebin-system
+git clone https://github.com/EternalEffy/wishly-platform.git
+cd wishly-platform
 ```
 ### 2. Build Project
 ```bash
@@ -222,8 +239,8 @@ Paste content is stored in MinIO (S3-compatible object storage):
 
 | Parameter | Value | Description |
 |-----------|-------|-------------|
-| **Bucket** | `pastes` | All paste content |
-| **Key Format** | `pastes/{hash}` | Unique key per paste |
+| **Bucket** | `notes` | All paste content |
+| **Key Format** | `notes/{hash}` | Unique key per paste |
 | **Content Type** | `text/plain` | Plain text storage |
 | **Console** | `http://localhost:9001` | Web UI for browsing |
 
@@ -245,3 +262,14 @@ Paste content is stored in MinIO (S3-compatible object storage):
 | **Blob Storage** | MinIO (S3-compatible) |
 | **Build Tool** | Maven |
 | **Architecture** | Microservices (REST) |
+
+## 📱 Mobile Application
+Android application available in separate repository:
+- 👉 github.com/EternalEffy/wishly-android
+
+**Features**
+- JWT Authentication (Login/Register)
+- Create & Manage Notes
+- Wishlist Management (coming soon)
+- QR Code Sharing
+- Material Design 3 UI
