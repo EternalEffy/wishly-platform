@@ -17,6 +17,8 @@ import java.util.UUID;
 @AllArgsConstructor
 public class User {
     @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(name = "id", nullable = false)
     private UUID id;
 
     @Column(name = "email", unique = true, nullable = false)
@@ -39,11 +41,4 @@ public class User {
 
     @Column(name = "last_login_at")
     private Instant lastLoginAt;
-
-    @PrePersist
-    public void prePersist() {
-        if (this.id == null) {
-            this.id = UUID.randomUUID();
-        }
-    }
 }

@@ -27,21 +27,18 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .exceptionHandling(exceptions -> exceptions
-                        .authenticationEntryPoint((request, response, authException) -> {
-                            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                            response.setContentType("application/json");
-                            response.getWriter().write("{\"error\": \"Unauthorized\", \"status\": 401}");
-                        })
-                )
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/register").permitAll()
-                        .requestMatchers("/api/auth/login").permitAll()
-                        .requestMatchers("/api/auth/refresh").permitAll()
-                        .requestMatchers("/api/auth/logout").permitAll()
-                        .requestMatchers("/actuator/**").permitAll()
-                        .anyRequest().authenticated()
+                        .requestMatchers(
+                                "/api/wishlists/public/**",
+                                "/api/wishlists/supported-sites",
+                                "/health",
+                                "/actuator/**"
+                        ).permitAll()
+
+                        .requestMatchers("/api/**").permitAll()
+                        .anyRequest().permitAll()
                 );
+
         return http.build();
     }
 

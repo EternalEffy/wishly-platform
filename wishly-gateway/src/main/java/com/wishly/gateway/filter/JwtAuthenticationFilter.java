@@ -27,6 +27,7 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
             "/api/auth/refresh",
             "/api/auth/logout",
             "/api/notes/",
+            "/api/wishlists/",
             "/actuator/health",
             "/health"
     );
@@ -36,7 +37,8 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
         String path = exchange.getRequest().getPath().value();
         String authHeader = exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
 
-        if (path.matches("^/api/notes/[a-zA-Z0-9]+$")) {
+        if (path.matches("^/api/(notes|wishlists)/[a-zA-Z0-9]+$") ||
+                path.matches("^/api/(notes|wishlists)/[a-zA-Z0-9-]+/.*$")) {
             if (authHeader != null && authHeader.startsWith("Bearer ")) {
                 String token = authHeader.substring(7);
 
