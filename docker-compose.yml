@@ -190,7 +190,7 @@ services:
       - SERVER_PORT=${SERVER_PORT_WISHLIST:-8084}
       - DB_HOST=${DB_HOST:-postgres}
       - DB_PORT=${DB_PORT:-5432}
-      - DB_NAME=${DB_NAME_WISHLIST:-wishlistdb}
+      - DB_NAME=${DB_NAME_WISHLIST:-wishly}
       - DB_USERNAME=${DB_USERNAME:-user}
       - DB_PASSWORD=${DB_PASSWORD:-password}
       - DB_DDL_AUTO=${DB_DDL_AUTO:-update}
@@ -203,6 +203,8 @@ services:
         condition: service_healthy
       wishly-auth-service:
         condition: service_started
+      redis:
+        condition: service_healthy
     networks:
       - wishly-network
 

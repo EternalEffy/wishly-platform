@@ -6,7 +6,7 @@ spring:
     name: wishly-wishlist-service
 
   datasource:
-    url: jdbc:postgresql://${DB_HOST:postgres}:${DB_PORT:5432}/${DB_NAME_WISHLIST:wishlistdb}
+    url: jdbc:postgresql://${DB_HOST:postgres}:${DB_PORT:5432}/${DB_NAME_WISHLIST:wishly}
     username: ${DB_USERNAME:user}
     password: ${DB_PASSWORD:password}
     driver-class-name: org.postgresql.Driver
@@ -20,10 +20,29 @@ spring:
         format_sql: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
+  parser:
+    service:
+      url: ${PARSER_SERVICE_URL:http://wishly-parser-service:8085}
+
   validation:
     enabled: true
+
+jwt:
+  secret: ${JWT_SECRET}
 
 logging:
   level:
     root: ${LOG_LEVEL_ROOT:INFO}
     com.wishly.wishlistservice: ${LOG_LEVEL_APP:DEBUG}
+
+wishlist:
+  supported-sites:
+    - name: "Wildberries"
+      domains: ["wildberries.ru", "www.wildberries.ru"]
+      enabled: true
+    - name: "Ozon"
+      domains: ["ozon.ru", "www.ozon.ru"]
+      enabled: true
+    - name: "Yandex Market"
+      domains: ["market.yandex.ru", "yandex.ru"]
+      enabled: true

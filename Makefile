@@ -1,25 +1,13 @@
 up:
 	docker compose up -d
 
-up-all:
-	docker compose up -d
-
 down:
 	docker compose down -v
-
-down-all:
-	docker compose down -v --rmi all
 
 logs:
 	docker compose logs -f
 
-logs-all:
-	docker compose logs -f
-
 build:
-	docker compose build --no-cache
-
-build-all:
 	docker compose build --no-cache
 
 test:
