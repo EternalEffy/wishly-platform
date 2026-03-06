@@ -13,6 +13,4 @@ public interface GiftItemRepository extends JpaRepository<GiftItem, UUID> {
     List<GiftItem> findAllByWishlistId(UUID wishlistId);
 
     Optional<GiftItem> findByIdAndWishlistId(UUID id, UUID wishlistId);
-
-    Optional<GiftItem> findByUrlHash(String urlHash);
 }

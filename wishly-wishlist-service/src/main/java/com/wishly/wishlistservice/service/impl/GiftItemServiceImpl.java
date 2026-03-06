@@ -2,22 +2,22 @@ package com.wishly.wishlistservice.service.impl;
 
 import com.wishly.wishlistservice.dto.GiftItemRequest;
 import com.wishly.wishlistservice.dto.GiftItemResponse;
-import com.wishly.wishlistservice.dto.ProductMetadata;
 import com.wishly.wishlistservice.exception.GiftItemNotFoundException;
 import com.wishly.wishlistservice.exception.WishlistNotFoundException;
 import com.wishly.wishlistservice.model.entity.GiftItem;
 import com.wishly.wishlistservice.model.entity.Wishlist;
+import com.wishly.wishlistservice.model.enums.PriorityLevel;
 import com.wishly.wishlistservice.repository.GiftItemRepository;
 import com.wishly.wishlistservice.repository.WishlistRepository;
 import com.wishly.wishlistservice.service.GiftItemService;
-import com.wishly.wishlistservice.service.UrlParserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 
+import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.List;
 import java.util.UUID;
 
@@ -27,31 +27,32 @@ import java.util.UUID;
 public class GiftItemServiceImpl implements GiftItemService {
     private final GiftItemRepository giftRepository;
     private final WishlistRepository wishlistRepository;
-    private final UrlParserService urlParserService;
 
     @Override
-    public GiftItemResponse createGiftItem(UUID wishlistId, GiftItemRequest request, UUID ownerId) {
-        Wishlist wishlist = wishlistRepository.findByIdAndOwnerId(wishlistId, ownerId)
+    @Transactional
+    public GiftItemResponse createGiftItem(UUID wishlistId, GiftItemRequest request,UUID ownerId) {
+        log.info("Creating gift item for wishlist: {}", wishlistId);
+
+        Wishlist wishlist = wishlistRepository.findById(wishlistId)
                 .orElseThrow(() -> new WishlistNotFoundException(wishlistId));
-        if (wishlist.isArchived()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Wishlist is archived");
+
+        String validatedUrl = null;
+        if (request.productUrl() != null && !request.productUrl().isBlank()) {
+            validatedUrl = validateUrl(request.productUrl());
         }
-        ProductMetadata metadata = urlParserService.parseUrl(request.productUrl());
 
         GiftItem giftItem = GiftItem.builder()
                 .wishlist(wishlist)
                 .name(request.name())
-                .priority(request.priority())
-                .productUrl(request.productUrl())
-                .imageUrl(metadata.imageUrl())
-                .price(metadata.price())
-                .currency(metadata.currency())
-                .siteName(metadata.siteName())
-                .description(metadata.description())
-                .urlHash(metadata.urlHash())
+                .productUrl(validatedUrl)
+                .description(request.description())
+                .priority(request.priority() != null ? request.priority() : PriorityLevel.MEDIUM)
                 .build();
-        GiftItem saved = giftRepository.save(giftItem);
-        log.info("Created gift item:{} for wishlist:{}", saved.getId(), wishlistId);
+
+        giftRepository.save(giftItem);
+
+        log.info("Created gift item: {}", giftItem.getId());
+
         return toResponse(giftItem);
     }
 
@@ -79,18 +80,36 @@ public class GiftItemServiceImpl implements GiftItemService {
         log.info("Deleted gift item: {} from wishlist: {}", itemId, wishlistId);
     }
 
+    private String validateUrl(String productUrl) {
+        String trimmedUrl = productUrl.trim();
+
+        try {
+            URI url = new URI(trimmedUrl);
+
+            String host = url.getHost();
+            if (host == null || host.isEmpty()) {
+                throw new IllegalArgumentException("URL must have a valid host");
+            }
+
+            return trimmedUrl;
+
+        } catch (URISyntaxException e) {
+            throw new IllegalArgumentException("Invalid URL format", e);
+        }
+    }
+
     private GiftItemResponse toResponse(GiftItem giftItem) {
         return new GiftItemResponse(
                 giftItem.getId(),
                 giftItem.getName(),
                 giftItem.getPriority(),
-                giftItem.isReserved(),
                 giftItem.getProductUrl(),
-                giftItem.getImageUrl(),
-                giftItem.getPrice(),
-                giftItem.getCurrency(),
-                giftItem.getSiteName(),
-                giftItem.getDescription()
+                giftItem.getDescription(),
+                giftItem.isReserved(),
+                giftItem.getReservedByName(),
+                giftItem.getReservedByEmail(),
+                giftItem.getReservedAt(),
+                giftItem.getCreatedAt()
         );
     }
 }

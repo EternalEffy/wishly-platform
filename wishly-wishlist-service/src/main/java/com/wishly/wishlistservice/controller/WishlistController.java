@@ -3,7 +3,6 @@ package com.wishly.wishlistservice.controller;
 import com.wishly.wishlistservice.dto.*;
 import com.wishly.wishlistservice.service.GiftItemService;
 import com.wishly.wishlistservice.service.ReservationService;
-import com.wishly.wishlistservice.service.SupportedSitesService;
 import com.wishly.wishlistservice.service.WishlistService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -23,7 +22,6 @@ public class WishlistController {
     private final WishlistService wishlistService;
     private final GiftItemService giftItemService;
     private final ReservationService reservationService;
-    private final SupportedSitesService supportedSitesService;
 
     @PostMapping
     public ResponseEntity<WishlistResponse> createWishlist(
@@ -150,14 +148,4 @@ public class WishlistController {
         List<ReservationResponse> responses = reservationService.getMyReservations(userId);
         return ResponseEntity.ok(responses);
     }
-
-    // === Supported Sites Endpoint ===
-
-    @GetMapping("/supported-sites")
-    public ResponseEntity<List<SupportedSiteResponse>> getSupportedSites() {
-        log.info("Getting supported sites");
-        List<SupportedSiteResponse> responses = supportedSitesService.getSupportedSites();
-        return ResponseEntity.ok(responses);
-    }
-
 }

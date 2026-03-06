@@ -8,6 +8,7 @@ import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
@@ -26,8 +27,6 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
             "/api/auth/login",
             "/api/auth/refresh",
             "/api/auth/logout",
-            "/api/notes/",
-            "/api/wishlists/",
             "/actuator/health",
             "/health"
     );
@@ -35,45 +34,36 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         String path = exchange.getRequest().getPath().value();
-        String authHeader = exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
 
-        if (path.matches("^/api/(notes|wishlists)/[a-zA-Z0-9]+$") ||
-                path.matches("^/api/(notes|wishlists)/[a-zA-Z0-9-]+/.*$")) {
-            if (authHeader != null && authHeader.startsWith("Bearer ")) {
-                String token = authHeader.substring(7);
-
-                if (jwtTokenProvider.validateToken(token)) {
-                    UUID userId = jwtTokenProvider.extractUserId(token);
-
-                    ServerWebExchange modifiedExchange = exchange.mutate()
-                            .request(exchange.getRequest().mutate()
-                                    .header("X-User-Id", userId.toString())
-                                    .build())
-                            .build();
-
-                    return chain.filter(modifiedExchange);
-                }
-            }
-            return chain.filter(exchange);
-        }
+        log.debug("Processing request: {} {}", exchange.getRequest().getMethod(), path);
 
         if (isPublicPath(path)) {
+            log.debug("Public path, skipping auth: {}", path);
             return chain.filter(exchange);
         }
 
+        String authHeader = exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
+
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
-            return exchange.getResponse().setComplete();
+            log.warn("Missing or invalid Authorization header for: {}", path);
+            return onError(exchange, HttpStatus.UNAUTHORIZED, "Missing or invalid Authorization header");
         }
 
         String token = authHeader.substring(7);
 
         if (!jwtTokenProvider.validateToken(token)) {
-            exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
-            return exchange.getResponse().setComplete();
+            log.warn("Invalid JWT token for: {}", path);
+            return onError(exchange, HttpStatus.UNAUTHORIZED, "Invalid JWT token");
         }
 
         UUID userId = jwtTokenProvider.extractUserId(token);
+
+        if (userId == null) {
+            log.warn("User ID not found in token for: {}", path);
+            return onError(exchange, HttpStatus.UNAUTHORIZED, "User ID not found in token");
+        }
+
+        log.debug("Extracted user ID: {} for path: {}", userId, path);
 
         ServerWebExchange modifiedExchange = exchange.mutate()
                 .request(exchange.getRequest().mutate()
@@ -85,14 +75,24 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
     }
 
     private boolean isPublicPath(String path) {
-        boolean isExactMatch = PUBLIC_PATHS.stream()
+        return PUBLIC_PATHS.stream()
                 .anyMatch(path::startsWith);
+    }
 
-        if (isExactMatch) {
-            return true;
-        }
+    private Mono<Void> onError(ServerWebExchange exchange, HttpStatus status, String message) {
+        ServerHttpResponse response = exchange.getResponse();
+        response.setStatusCode(status);
+        response.getHeaders().add("Content-Type", "application/json");
 
-        return path.matches("^/api/(notes|pastes)/[a-zA-Z0-9]+$");
+        String body = String.format(
+                "{\"status\":%d,\"error\":\"%s\",\"message\":\"%s\",\"path\":\"%s\"}",
+                status.value(),
+                status.getReasonPhrase(),
+                message,
+                exchange.getRequest().getURI().getPath()
+        );
+
+        return response.writeWith(Mono.just(response.bufferFactory().wrap(body.getBytes())));
     }
 
     @Override

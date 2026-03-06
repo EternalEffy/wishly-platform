@@ -3,6 +3,8 @@ package com.wishly.wishlistservice.model.entity;
 import com.wishly.wishlistservice.model.enums.PriorityLevel;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
@@ -18,63 +20,59 @@ import java.util.UUID;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(name = "gift_items", indexes = {
         @Index(name = "idx_gift_items_wishlist_id", columnList = "wishlist_id"),
-        @Index(name = "idx_gift_items_url_hash", columnList = "url_hash"),
-        @Index(name = "idx_gift_items_purchased", columnList = "purchased")
+        @Index(name = "idx_gift_items_url_hash", columnList = "url_hash")
 })
 @EntityListeners(AuditingEntityListener.class)
 public class GiftItem {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(name = "id", nullable = false)
     private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "wishlist_id", nullable = false)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private Wishlist wishlist;
 
-    @Column(name = "name", nullable = false, length = 200)
+    @Column(name = "name", nullable = false, length = 255)
     private String name;
 
-    @Column(name = "priority", nullable = false)
-    @Enumerated(EnumType.STRING)
-    @Builder.Default
-    private PriorityLevel priority = PriorityLevel.MEDIUM;
-
-    @OneToOne(mappedBy = "giftItem", fetch = FetchType.LAZY)
-    private Reservation activeReservation;
-
-    @Column(name = "product_url")
+    @Column(name = "product_url", length = 2048)
     private String productUrl;
-
-    @Column(name = "image_url")
-    private String imageUrl;
-
-    @Column(name = "price")
-    private BigDecimal price;
-
-    @Column(name = "currency")
-    private String currency;
-
-    @Column(name = "site_name")
-    private String siteName;
 
     @Column(name = "description", length = 1000)
     private String description;
 
-    @Column(name = "url_hash")
-    private String urlHash;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "priority", length = 20)
+    @Builder.Default
+    private PriorityLevel priority = PriorityLevel.MEDIUM;
 
-    @CreatedDate
-    @Column(name = "created_at", nullable = false, updatable = false)
+    @Column(name = "reserved", nullable = false)
+    @Builder.Default
+    private boolean reserved = false;
+
+    @Column(name = "reserved_by_name", length = 255)
+    private String reservedByName;
+
+    @Column(name = "reserved_by_email", length = 255)
+    private String reservedByEmail;
+
+    @Column(name = "reserved_at")
+    private LocalDateTime reservedAt;
+
+    @OneToOne(fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "active_reservation_id")
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private Reservation activeReservation;
+
+    @CreationTimestamp
+    @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
-    @LastModifiedDate
+    @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
-
-
-    public boolean isReserved() {
-        return activeReservation != null && activeReservation.isActive();
-    }
 
 }

@@ -20,9 +20,9 @@ spring:
         format_sql: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
-  redis:
-    host: ${REDIS_HOST:redis}
-    port: ${REDIS_PORT:6379}
+  parser:
+    service:
+      url: ${PARSER_SERVICE_URL:http://wishly-parser-service:8085}
 
   validation:
     enabled: true
