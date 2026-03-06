@@ -1,6 +1,6 @@
 # 🎁 Wishly Platform
 
-Multi-service content sharing platform with Notes, Wishlists, and Authentication.
+Multi-service platform for Notes, Wishlists, and Authentication.
 
 ![Java](https://img.shields.io/badge/Java-21-blue?style=for-the-badge&logo=openjdk)
 ![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.2.0-green?style=for-the-badge&logo=spring-boot)
@@ -24,6 +24,7 @@ graph LR
     AS --> AUTHDB[(🗄️ PostgreSQL<br/>authdb)]
     HS --> RD[(🔴 Redis<br/>hash pool)]
     WS --> WDB[(🗄️ PostgreSQL<br/>wishlistdb)]
+    G --> RDG[(🔴 Redis<br/>rate limiting)]
     
     style G fill:#4CAF50,stroke:#333,stroke-width:2px,color:white
     style NS fill:#2196F3,stroke:#333,stroke-width:2px,color:white
@@ -35,6 +36,7 @@ graph LR
     style MO fill:#FF5722,stroke:#333,stroke-width:2px,color:white
     style RD fill:#F44336,stroke:#333,stroke-width:2px,color:white
     style WDB fill:#E91E63,stroke:#333,stroke-width:2px,color:white
+    style RDG fill:#F44336,stroke:#333,stroke-width:2px,color:white
 ```
 ### Storage Strategy
 
@@ -42,7 +44,9 @@ graph LR
 |-----------|---------|-----------|
 | **Metadata** (hash, blobKey, expiresAt) | PostgreSQL | Fast queries, indexes, TTL |
 | **Content** (paste text) | MinIO (S3) | Scalable blob storage |
-| **Hash Pool** (pre-generated IDs) | Redis | ~1ms retrieval time |
+| **Rate Limiting** (pre-generated IDs) | Redis | ~1ms retrieval time |
+| **Hash Pool** (Gateway) | Redis | Token bucket algorithm |
+| **Wishlist Data** | PostgreSQL | Direct queries (low-traffic use case) |
 
 ---
 
@@ -96,7 +100,7 @@ sequenceDiagram
     Client->>Gateway: 1. Login / API Request
     Gateway->>Gateway: Validate JWT
     Gateway->>Services: Add X-User-Id
-    Services->>DB: Auth/Notes
+    Services->>DB: Query
     DB-->>Services: Response
     Services-->>Gateway: Process Result
     Gateway-->>Client: 3. Return Response
@@ -152,8 +156,17 @@ flowchart LR
 | `GET` | `/api/notes/my` | Yes | Get your notes |
 | `DELETE` | `/api/notes/{hash}` | Yes | Delete note (owner only) |
 | `GET` | `/api/hash?length=8` | Yes | Get unique hash from Redis |
-| `POST` | `/api/wishlists` | Yes | Create wishlist (WIP) |
-| `GET` | `/api/wishlists/{id}` | Optional | Get wishlist (WIP) |
+| `POST` | `/api/wishlists` | Yes | Create wishlist |
+| `GET` | `/api/wishlists/{id}` | Optional | Get wishlist |
+| `GET` | `/api/wishlists/my` | Yes | Get your notes |
+| `PUT` | `/api/wishlists/{id}` | Yes | Update wishlist |
+| `DELETE` | `/api/wishlists/{id}` | Yes | Delete wishlist |
+| `POST` | `/api/wishlists/{id}/items` | Yes | Add gift item |
+| `GET` | `/api/wishlists/{id}/items` | Optional | Get wishlist items |
+| `PUT` | `/api/wishlists/{id}/items/{itemId}` | Yes | Update gift item |
+| `DELETE` | `/api/wishlists/{id}/items/{itemId}` | Yes | Delete gift item |
+| `POST` | `/api/wishlists/{id}/items/{itemId}/reserve` | Yes | Reserve gift |
+| `DELETE` | `/api/wishlists/{id}/items/{itemId}/reserve` | Yes | Cancel reservation |
 
 ### Notes Service (Port 8082)
 
@@ -176,15 +189,21 @@ curl http://localhost:8081/api/hash?length=8
 # Response: cHjj6PzH
 ```
 
-### Wishlist Service (Port 8084) - In Development
+### Wishlist Service (Port 8084)
 
-| Method | Endpoint | Description 
-|--------|----------|-------------
+| Method | Endpoint | Description |
+|--------|----------|-------------|
 | `POST` | `/api/wishlists` | Create new wishlist |
 | `GET` | `/api/wishlists/my` | Get your wishlists |
 | `GET` | `/api/wishlists/{id}` | Get wishlist by ID |
-| `POST` | `/api/wishlists/{id}/items` | Add gift item |
-| `POST` | `/api/wishlists/{id}/items/{itemId}/reserve` | Reserve gift |
+| `PUT` | `/api/wishlists/{id}` | Update wishlist |
+| `DELETE` | `/api/wishlists/{id}` | Delete wishlist |
+| `POST` | `/api/wishlists/{id}/items` | Add gift item (URL optional) |
+| `GET` | `/api/wishlists/{id}/items` | Get all gift items |
+| `PUT` | `/api/wishlists/{id}/items/{itemId}` | Update gift item |
+| `DELETE` | `/api/wishlists/{id}/items/{itemId}` | Delete gift item |
+| `POST` | `/api/wishlists/{id}/items/{itemId}/reserve` | Reserve gift (7-day TTL) |
+| `DELETE` | `/api/wishlists/{id}/items/{itemId}/reserve` | Cancel reservation |
 
 ### Health Check
 
@@ -215,9 +234,55 @@ mvn clean install
 ```bash
 docker-compose up -d
 ```
-## 🔴 Redis Hash Pool
+### 4. Run E2E Tests
+```bash
+./test-wishlist.sh
+```
+## 🎁 Wishlist Service
 
-The hash-generator-service uses a **pre-generated hash pool** for high performance:
+### Features
+
+- **Wishlist CRUD** - Create, read, update, delete, archive wishlists
+- **GiftItem Management** - Add gifts with optional URL, name, description, priority
+- **Reservation System** - Reserve gifts with 7-day automatic expiration
+- **Privacy Settings** - PUBLIC, PRIVATE, SHARED visibility
+- **URL Validation** - Format validation (http/https + host check)
+
+### GiftItem Structure
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | String | ✅ Yes | Gift name (user enters manually) |
+| `productUrl` | String | ❌ Optional | Product URL (max 2048 chars) |
+| `description` | String | ❌ Optional | Gift description (max 1000 chars) |
+| `priority` | Enum | ❌ Optional | LOW, MEDIUM, HIGH (default: MEDIUM) |
+| `reserved` | Boolean | Auto | Reservation status |
+| `reservedByName` | String | Auto | Guest name who reserved |
+| `reservedByEmail` | String | Auto | Guest email who reserved |
+| `reservedAt` | DateTime | Auto | Reservation timestamp |
+
+### Reservation Flow
+
+```mermaid
+sequenceDiagram
+    participant G as "👤 Guest"
+    participant GW as "🌐 Gateway"
+    participant WS as "🎁 Wishlist Service"
+    participant DB as "💾 PostgreSQL"
+
+    G->>GW: POST /reserve (name, email)
+    GW->>WS: Forward with X-User-Id
+    WS->>DB: Check if already reserved
+    DB-->>WS: Available
+    WS->>DB: Create reservation (7-day TTL)
+    DB-->>WS: Success
+    WS-->>GW: Reservation confirmed
+    GW-->>G: 200 OK + expiresAt
+```
+
+## 🔴 Redis Usage
+
+### Hash Pool (Hash Generator Service)
 
 | Parameter | Value | Description |
 |-----------|-------|-------------|
@@ -231,6 +296,17 @@ The hash-generator-service uses a **pre-generated hash pool** for high performan
 - ⚡ Fast hash generation (~1ms vs ~50ms for on-demand)
 - 🔄 Automatic pool replenishment
 
+### Rate Limiting (Gateway)
+
+| Parameter | Value | Description |
+|-----------|-------|-------------|
+| **Algorithm** | Token Bucket | Smooth rate limiting |
+| **Default Limit** | 100 req/min | Per IP address |
+| **Storage** | Redis | Distributed rate limiting |
+
+**Benefits:**
+- 🛡️ API protection from abuse
+- 📊 Fair usage across clients
 ---
 
 ## 📦 MinIO Blob Storage
@@ -254,22 +330,25 @@ Paste content is stored in MinIO (S3-compatible object storage):
 ## 📦 Tech Stack
 
 | Category | Technology |
-|--------|-------------|
+|----------|------------|
 | **Language** | Java 21 |
-| **Framework** | Spring Boot 3.3.0 |
+| **Framework** | Spring Boot 3.2.0 |
 | **Database** | PostgreSQL 15 |
 | **Cache** | Redis 7 |
 | **Blob Storage** | MinIO (S3-compatible) |
 | **Build Tool** | Maven |
 | **Architecture** | Microservices (REST) |
+| **Containerization** | Docker Compose |
+
+---
 
 ## 📱 Mobile Application
-Android application available in separate repository:
-- 👉 github.com/EternalEffy/wishly-android
 
-**Features**
+Android application available in separate repository:
+- 👉 [github.com/EternalEffy/wishly-android](https://github.com/EternalEffy/wishly-android)
+
+**Features:**
 - JWT Authentication (Login/Register)
 - Create & Manage Notes
-- Wishlist Management (coming soon)
+- Wishlist Management
 - QR Code Sharing
-- Material Design 3 UI
