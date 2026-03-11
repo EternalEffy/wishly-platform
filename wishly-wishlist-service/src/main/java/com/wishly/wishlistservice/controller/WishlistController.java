@@ -32,7 +32,7 @@ public class WishlistController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-    @GetMapping
+    @GetMapping("/user/me")
     public ResponseEntity<List<WishlistResponse>> getMyWishlists(
             @RequestHeader("X-User-Id") UUID ownerId) {
         log.info("Getting wishlists for user:{}", ownerId);
