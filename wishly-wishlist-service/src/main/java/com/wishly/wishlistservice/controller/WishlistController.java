@@ -128,7 +128,7 @@ public class WishlistController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-    @PostMapping("/{wishlistId}/items/{itemId}/cancel")
+    @DeleteMapping("/{wishlistId}/items/{itemId}/reserve")
     public ResponseEntity<Void> cancelReservation(
             @PathVariable UUID wishlistId,
             @PathVariable UUID itemId,

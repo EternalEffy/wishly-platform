@@ -140,6 +140,29 @@ RESERVE_RESPONSE=$(curl -s -X POST "${GATEWAY_URL}/api/wishlists/${WISHLIST_ID}/
 echo "${RESERVE_RESPONSE}" | jq .
 echo ""
 
+# 7.5. Отмена резерва (ПРОВЕРКА ИСПРАВЛЕНИЯ!)
+echo "=== 7.5. Cancel Reservation (DELETE /reserve) ==="
+CANCEL_RESPONSE=$(curl -s -w "\n%{http_code}" -X DELETE "${GATEWAY_URL}/api/wishlists/${WISHLIST_ID}/items/${GIFT_ID}/reserve" \
+  -H "Authorization: Bearer ${ACCESS_TOKEN}")
+
+CANCEL_STATUS=$(echo "${CANCEL_RESPONSE}" | tail -n1)
+echo "Status: ${CANCEL_STATUS}"
+
+if [[ ! "${CANCEL_STATUS}" =~ ^2 ]]; then
+    echo "❌ Отмена резерва FAILED (status: ${CANCEL_STATUS})"
+    echo "Это значит @DeleteMapping не работает!"
+    docker logs wishly-wishlist-service --tail 20
+    exit 1
+fi
+
+echo "✅ Отмена резерва OK (status: ${CANCEL_STATUS}) ← ИСПРАВЛЕНО!"
+
+# Проверка что статус сбросился
+echo "Проверка что gift больше не зарезервирован..."
+curl -s "${GATEWAY_URL}/api/wishlists/${WISHLIST_ID}/items" \
+  -H "Authorization: Bearer ${ACCESS_TOKEN}" | jq ".[] | select(.id==\"${GIFT_ID}\") | {name, reserved, reservedByName}"
+echo ""
+
 # 8. Получить вишлист (проверка что резервирование отобразилось)
 echo "=== 8. Get Wishlist with Items ==="
 curl -s "${GATEWAY_URL}/api/wishlists/${WISHLIST_ID}" \
