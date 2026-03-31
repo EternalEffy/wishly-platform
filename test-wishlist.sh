@@ -127,8 +127,26 @@ else
 fi
 echo ""
 
-# 7. Резервирование подарка
-echo "=== 7. Reserve Gift Item ==="
+# 7. Резервирование подарка + проверка что reserved=true в GiftItem
+echo "=== 7. Reserve Gift Item + Verify reserved=true ==="
+
+# ✅ Функция для получения одного подарка через список + фильтрацию
+get_gift_by_id() {
+    local wishlist_id=$1
+    local gift_id=$2
+    local token=$3
+    curl -s "${GATEWAY_URL}/api/wishlists/${wishlist_id}/items" \
+      -H "Authorization: Bearer ${token}" | jq ".[] | select(.id==\"${gift_id}\")"
+}
+
+echo "🔍 Проверка до резервирования: подарок должен быть available..."
+PRE_RESERVE=$(get_gift_by_id "${WISHLIST_ID}" "${GIFT_ID}" "${ACCESS_TOKEN}")
+PRE_RESERVED=$(echo "${PRE_RESERVE}" | jq -r '.reserved // "null"')
+
+if [ "${PRE_RESERVED}" != "false" ]; then
+    echo "⚠️ Подарок уже зарезервирован перед тестом (reserved=${PRE_RESERVED})"
+fi
+
 RESERVE_RESPONSE=$(curl -s -X POST "${GATEWAY_URL}/api/wishlists/${WISHLIST_ID}/items/${GIFT_ID}/reserve" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer ${ACCESS_TOKEN}" \
@@ -138,32 +156,76 @@ RESERVE_RESPONSE=$(curl -s -X POST "${GATEWAY_URL}/api/wishlists/${WISHLIST_ID}/
   }')
 
 echo "${RESERVE_RESPONSE}" | jq .
+
+echo "🔍 Проверка после резервирования: подарок должен быть reserved=true..."
+POST_RESERVE=$(get_gift_by_id "${WISHLIST_ID}" "${GIFT_ID}" "${ACCESS_TOKEN}")
+
+POST_RESERVED=$(echo "${POST_RESERVE}" | jq -r '.reserved // "null"')
+POST_RESERVED_BY=$(echo "${POST_RESERVE}" | jq -r '.reservedByName // "null"')
+
+echo "GiftItem after reserve: reserved=${POST_RESERVED}, reservedByName=${POST_RESERVED_BY}"
+
+if [ "${POST_RESERVED}" != "true" ]; then
+    echo "❌ FAILED: reserved поле НЕ обновилось после резервирования!"
+    echo "   Ожидалось: reserved=true"
+    echo "   Получено: reserved=${POST_RESERVED}"
+    echo ""
+    echo "💡 Проверь что маппер копирует поле reserved в GiftItemResponse"
+    exit 1
+fi
+
+if [ "${POST_RESERVED_BY}" != "John Doe" ]; then
+    echo "⚠️ reservedByName не совпадает (ожидался 'John Doe', получил '${POST_RESERVED_BY}')"
+fi
+
+echo "✅ Резервирование успешно + reserved поле синхронизировано!"
 echo ""
 
-# 7.5. Отмена резерва (ПРОВЕРКА ИСПРАВЛЕНИЯ!)
-echo "=== 7.5. Cancel Reservation (DELETE /reserve) ==="
+# 7.5. Отмена резерва + проверка что reserved=false в GiftItem
+echo "=== 7.5. Cancel Reservation + Verify reserved=false ==="
+
+# Выполняем отмену резерва
 CANCEL_RESPONSE=$(curl -s -w "\n%{http_code}" -X DELETE "${GATEWAY_URL}/api/wishlists/${WISHLIST_ID}/items/${GIFT_ID}/reserve" \
   -H "Authorization: Bearer ${ACCESS_TOKEN}")
 
 CANCEL_STATUS=$(echo "${CANCEL_RESPONSE}" | tail -n1)
 echo "Status: ${CANCEL_STATUS}"
 
+# ✅ Даем время на коммит транзакции
+sleep 1
+
 if [[ ! "${CANCEL_STATUS}" =~ ^2 ]]; then
     echo "❌ Отмена резерва FAILED (status: ${CANCEL_STATUS})"
-    echo "Это значит @DeleteMapping не работает!"
     docker logs wishly-wishlist-service --tail 20
     exit 1
 fi
 
-echo "✅ Отмена резерва OK (status: ${CANCEL_STATUS}) ← ИСПРАВЛЕНО!"
+echo "🔍 Проверка после отмены: подарок должен быть reserved=false..."
+POST_CANCEL=$(get_gift_by_id "${WISHLIST_ID}" "${GIFT_ID}" "${ACCESS_TOKEN}")
 
-# Проверка что статус сбросился
-echo "Проверка что gift больше не зарезервирован..."
-curl -s "${GATEWAY_URL}/api/wishlists/${WISHLIST_ID}/items" \
-  -H "Authorization: Bearer ${ACCESS_TOKEN}" | jq ".[] | select(.id==\"${GIFT_ID}\") | {name, reserved, reservedByName}"
+# ✅ ИСПРАВЛЕНО: убрали // "null" который ломает boolean false
+POST_CANCEL_RESERVED=$(echo "${POST_CANCEL}" | jq -r '.reserved')
+POST_CANCEL_RESERVED_BY=$(echo "${POST_CANCEL}" | jq -r '.reservedByName')
+
+echo "GiftItem after cancel: reserved=${POST_CANCEL_RESERVED}, reservedByName=${POST_CANCEL_RESERVED_BY}"
+
+# ✅ Сравниваем с правильными значениями
+if [ "${POST_CANCEL_RESERVED}" != "false" ]; then
+    echo "❌ FAILED: reserved поле НЕ сбросилось после отмены резерва!"
+    echo "   Ожидалось: reserved=false"
+    echo "   Получено: reserved=${POST_CANCEL_RESERVED}"
+    exit 1
+fi
+
+# Для строковых полей можно оставить // empty или проверять на "null"
+if [ "${POST_CANCEL_RESERVED_BY}" != "null" ] && [ -n "${POST_CANCEL_RESERVED_BY}" ]; then
+    echo "⚠️ reservedByName не очистился после отмены (ожидался null, получил '${POST_CANCEL_RESERVED_BY}')"
+fi
+
+echo "✅ Отмена резерва успешна + reserved поле сброшено!"
 echo ""
 
-# 8. Получить вишлист (проверка что резервирование отобразилось)
+# 8. Получить вишлист (проверка что данные консистентны)
 echo "=== 8. Get Wishlist with Items ==="
 curl -s "${GATEWAY_URL}/api/wishlists/${WISHLIST_ID}" \
   -H "Authorization: Bearer ${ACCESS_TOKEN}" | jq .
@@ -181,6 +243,11 @@ docker exec wishly-redis redis-cli ping || echo "⚠️ Redis not available"
 echo ""
 echo "PostgreSQL:"
 docker exec wishly-postgres psql -U user -d wishly -c "SELECT COUNT(*) FROM wishlists;" || echo "⚠️ PostgreSQL not available"
+
+# 🔥 Дополнительно: проверим что в таблице reservations тоже всё ок
+echo ""
+echo "PostgreSQL - Reservations table:"
+docker exec wishly-postgres psql -U user -d wishly -c "SELECT id, gift_item_id, status, guest_name FROM reservations LIMIT 5;" || echo "⚠️ Could not query reservations"
 echo ""
 
 # Итоги
@@ -192,7 +259,10 @@ echo "  ✅ JWT Authentication (Gateway)"
 echo "  ✅ Wishlist CRUD"
 echo "  ✅ GiftItem CRUD (URL optional)"
 echo "  ✅ URL Format Validation"
-echo "  ✅ Reservation System"
+echo "  ✅ Reservation System (POST /reserve)"
+echo "  ✅ Reservation Sync: GiftItem.reserved updates correctly"
+echo "  ✅ Cancel Reservation (DELETE /reserve)"
+echo "  ✅ Reservation Sync: GiftItem.reserved resets correctly"
 echo "  ✅ PostgreSQL Persistence"
 echo "  ✅ Redis (Gateway rate limiting)"
 echo "========================================"

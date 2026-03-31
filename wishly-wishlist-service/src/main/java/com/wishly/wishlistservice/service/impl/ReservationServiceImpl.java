@@ -63,8 +63,12 @@ public class ReservationServiceImpl implements ReservationService {
                 .guestName(request.guestName())
                 .build();
 
-        Reservation saved = repository.save(reservation);
 
+        giftItem.setReserved(true);
+        giftItem.setReservedByName(request.guestName());
+        giftItem.setReservedByEmail(request.guestEmail());
+        giftItem.setReservedAt(LocalDateTime.now());
+        Reservation saved = repository.save(reservation);
         giftItem.setActiveReservation(saved);
         giftItemRepository.save(giftItem);
 
@@ -74,6 +78,7 @@ public class ReservationServiceImpl implements ReservationService {
 
     @Override
     public void cancelReservation(UUID itemId, UUID wishlistId, UUID userId, String guestEmail) {
+        log.info("=== cancelReservation START ===");
         Reservation reservation = repository.findByGiftItemIdAndStatus(itemId, Reservation.ReservationStatus.ACTIVE)
                 .orElseThrow(() -> new ReservationNotFoundException(itemId));
 
@@ -86,10 +91,20 @@ public class ReservationServiceImpl implements ReservationService {
 
         reservation.cancel();
         repository.save(reservation);
+        log.info("Reservation cancelled: {}", reservation.getId());
 
-        GiftItem giftItem = reservation.getGiftItem();
+        GiftItem giftItem = giftItemRepository.findById(itemId)
+                .orElseThrow(() -> new GiftItemNotFoundException(itemId));
+
+        log.info("Before: reserved={}, name={}", giftItem.isReserved(), giftItem.getReservedByName());
+
+        giftItem.setReserved(false);
+        giftItem.setReservedByName(null);
+        giftItem.setReservedByEmail(null);
+        giftItem.setReservedAt(null);
         giftItem.setActiveReservation(null);
-        giftItemRepository.save(giftItem);
+        GiftItem saved = giftItemRepository.save(giftItem);
+        log.info("After save: saved.reserved={}, id={}", saved.isReserved(), saved.getId());
 
         log.info("Cancelled reservation: {} for item: {}", reservation.getId(), itemId);
     }
